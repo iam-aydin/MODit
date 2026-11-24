@@ -1,0 +1,51 @@
+[
+  {
+    "id": "tekken8",
+    "name": "Tekken 8",
+    "engine": "Unreal Engine 5",
+    "detect": ["Polaris/Content/Paks"],
+    "modsPath": "Polaris/Content/Paks",
+    "modFolder": "~mods"
+  },
+  {
+    "id": "palworld",
+    "name": "Palworld",
+    "engine": "Unreal Engine 5",
+    "detect": ["Pal/Content/Paks"],
+    "modsPath": "Pal/Content/Paks",
+    "modFolder": "~mods"
+  },
+  {
+    "id": "stellarblade",
+    "name": "Stellar Blade",
+    "engine": "Unreal Engine 4",
+    "detect": ["SB/Content/Paks"],
+    "modsPath": "SB/Content/Paks",
+    "modFolder": "~mods"
+  },
+  {
+    "id": "hogwartslegacy",
+    "name": "Hogwarts Legacy",
+    "engine": "Unreal Engine 4",
+    "detect": ["Phoenix/Content/Paks"],
+    "modsPath": "Phoenix/Content/Paks",
+    "modFolder": "~mods"
+  },
+  {
+    "id": "wukong",
+    "name": "Black Myth: Wukong",
+    "engine": "Unreal Engine 5",
+    "detect": ["b1/Content/Paks"],
+    "modsPath": "b1/Content/Paks",
+    "modFolder": "~mods"
+  },
+  {
+    "id": "unity-bepinex",
+    "name": "Unity (BepInEx)",
+    "engine": "Unity",
+    "generic": true,
+    "detect": ["BepInEx/plugins"],
+    "modsPath": "BepInEx/plugins",
+    "modFolder": ""
+  }
+]

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>MODit Browser</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src http: https: data:">
+<style>
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;overflow:hidden;user-select:none}
+body{background:#0b0912;color:#ece9f7;font:13px system-ui,'Segoe UI',sans-serif;display:flex;flex-direction:column}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+#tabs{height:40px;display:flex;align-items:flex-end;gap:2px;padding:6px 8px 0;background:#07060c}
+.tab{flex:0 1 220px;min-width:56px;height:34px;display:flex;align-items:center;gap:8px;padding:0 8px 0 12px;border-radius:12px 12px 0 0;background:rgba(255,255,255,.04);color:#8c85a6;cursor:default;overflow:hidden}
+.tab:hover{background:rgba(255,255,255,.08);color:#ece9f7}
+.tab.on{background:linear-gradient(90deg,rgba(80,20,24,.55),rgba(22,34,80,.55)) border-box no-repeat,#13101d;color:#fff}
+.tab img{width:16px;height:16px;flex:none;border-radius:3px}
+.tab .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tab .x{width:20px;height:20px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:10px;opacity:.65}
+.tab .x:hover{background:rgba(255,255,255,.18);opacity:1}
+.sp{width:14px;height:14px;flex:none;border-radius:50%;border:2px solid rgba(255,255,255,.2);border-top-color:#8aa4ff;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#plus{width:30px;height:30px;flex:none;border-radius:10px;margin:0 0 2px 4px;color:#8c85a6;font-size:20px;line-height:1}
+#plus:hover{background:rgba(255,255,255,.1);color:#fff}
+#tools{height:44px;display:flex;align-items:center;gap:6px;padding:0 10px;background:#13101d;border-bottom:1px solid rgba(255,255,255,.1)}
+.ib{width:32px;height:32px;border-radius:10px;font-size:15px}
+.ib:hover:not(:disabled){background:rgba(255,255,255,.1)}
+.ib:disabled{opacity:.3;cursor:default}
+#addr{flex:1;min-width:0;height:32px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:#ece9f7;padding:0 16px;font:inherit;outline:0;user-select:text}
+#addr:focus{border-color:rgba(120,140,255,.65)}
+#dl{padding:0 16px;height:32px;border-radius:999px;border:2px solid rgba(255,255,255,.22);background:linear-gradient(90deg,rgba(80,20,24,.9),rgba(22,34,80,.9)) border-box no-repeat;font-weight:600}
+#dl:hover{border-color:rgba(255,255,255,.4)}
+</style></head><body>
+<div id="tabs"></div>
+<div id="tools">
+  <button class="ib" id="back" title="Back (Alt+Left)">&#9664;</button>
+  <button class="ib" id="fwd" title="Forward (Alt+Right)">&#9654;</button>
+  <button class="ib" id="rel" title="Reload (F5)">&#10227;</button>
+  <input id="addr" placeholder="Search or type a web address" spellcheck="false" autocomplete="off">
+  <button id="dl" title="Show the Downloads section in MODit">Downloads</button>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cmd=(c,a)=>br.cmd(c,a);
+let last='';
+br.onState(s=>{
+  const key=JSON.stringify([s.tabs,s.active]);
+  if(key!==last){last=key;
+    $('#tabs').innerHTML=s.tabs.map(t=>`<div class="tab ${t.id===s.active?'on':''}" data-id="${t.id}" title="${esc(t.title)}">${t.loading?'<span class="sp"></span>':t.favicon?'<img src="'+esc(t.favicon)+'" onerror="this.remove()">':''}<span class="t">${esc(t.title)}</span><span class="x" title="Close tab">&#10005;</span></div>`).join('')+'<button id="plus" title="New tab (Ctrl+T)">+</button>'}
+  $('#back').disabled=!s.canBack;$('#fwd').disabled=!s.canForward;
+  const cur=s.tabs.find(t=>t.id===s.active);
+  $('#rel').innerHTML=cur&&cur.loading?'&#10005;':'&#10227;';
+  const a=$('#addr');if(document.activeElement!==a)a.value=s.url||''});
+$('#tabs').addEventListener('mousedown',e=>{if(e.button===1)e.preventDefault()});
+$('#tabs').addEventListener('auxclick',e=>{if(e.button!==1)return;const t=e.target.closest('.tab');if(t)cmd('close',+t.dataset.id)}); // middle-click closes a tab
+$('#tabs').addEventListener('click',e=>{
+  if(e.target.closest('#plus')){cmd('new');return}
+  const t=e.target.closest('.tab');if(!t)return;
+  if(e.target.closest('.x'))cmd('close',+t.dataset.id);else cmd('activate',+t.dataset.id)});
+const addr=$('#addr');
+addr.addEventListener('keydown',e=>{if(e.key==='Enter'){cmd('go',addr.value);addr.blur()}else if(e.key==='Escape')addr.blur()});
+addr.addEventListener('focus',()=>addr.select());
+br.onFocus(()=>{addr.focus();addr.select()});
+$('#back').onclick=()=>cmd('back');
+$('#fwd').onclick=()=>cmd('forward');
+$('#rel').onclick=()=>cmd('reload');
+$('#dl').onclick=()=>cmd('downloads');
+cmd('ready');
+</script></body></html>
