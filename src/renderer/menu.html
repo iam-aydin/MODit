@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Menu</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>
+*{box-sizing:border-box;margin:0;user-select:none;-webkit-user-drag:none;scrollbar-width:none}
+html,body{background:transparent;overflow:hidden;height:100%}
+body{font:13px system-ui,'Segoe UI',sans-serif;color:#ece9f7}
+#m{height:100%;padding:8px;border-radius:18px;border:1px solid transparent;
+  background:linear-gradient(#14101f,#14101f) padding-box,linear-gradient(90deg,rgba(150,30,40,.85),rgba(30,60,150,.85)) border-box;
+  opacity:0;transform:translateY(-8px) scale(.97);transform-origin:top left;transition:opacity .25s,transform .25s}
+body.on #m{opacity:1;transform:none}
+.i{height:34px;padding:0 14px;border-radius:12px;display:flex;align-items:center;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .2s}
+.i:hover{background:linear-gradient(90deg,rgba(80,20,24,.55),rgba(22,34,80,.55)) border-box no-repeat}
+.i.off{opacity:.38;cursor:default}
+.i.off:hover{background:none}
+.s{height:11px;display:flex;align-items:center;padding:0 8px}
+.s i{display:block;width:100%;height:1px;background:rgba(255,255,255,.12)}
+</style></head><body>
+<div id="m"></div>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+mnu.onShow(items=>{
+  $('#m').innerHTML=items.map((it,n)=>it.sep?'<div class="s"><i></i></div>':`<div class="i ${it.enabled?'':'off'}" data-n="${n}">${esc(it.label)}</div>`).join('');
+  document.body.classList.remove('on');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.add('on')))});
+mnu.onClose(()=>document.body.classList.remove('on'));
+$('#m').addEventListener('click',e=>{const i=e.target.closest('.i');if(i&&!i.classList.contains('off'))mnu.pick(+i.dataset.n)});
+addEventListener('blur',()=>mnu.blur());
+addEventListener('keydown',e=>{if(e.key==='Escape')mnu.blur()});
+addEventListener('contextmenu',e=>e.preventDefault());
+mnu.ready();
+</script></body></html>

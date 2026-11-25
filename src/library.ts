@@ -2,6 +2,11 @@ import { handlers } from './core';
 import { fetchNow, removeCoverFile, resetCover, scheduleCovers, setCustomCover } from './covers';
 import { addGame, deleteGame, getGame, loadAll, saveData, setSetting, updateGame } from './db';
 import type { CommandArgs } from './types';
+import { app } from 'electron';
+import fs from 'fs';
+import { findGameExe } from './launch';
+
+const gameIconCache = new Map<string, string>(); // exe path -> data: URL
 
 // Commands that read and write the game library (SQLite). main.ts adds them to the UI's command table.
 type Fn = (a: CommandArgs) => unknown | Promise<unknown>;
@@ -13,6 +18,24 @@ const need = <T>(v: T | undefined | null, what: string): T => {
 
 export const libraryApi: Record<string, Fn> = {
   load_state: () => loadAll(),
+
+  /** Icon of the game's program (the one the user picked, else the .exe found in its folder) as a data: URL. */
+  get_game_icon: async a => {
+    const g = getGame(need(a.id, 'id'));
+    if (!g) return null;
+    let exe: string | null = g.exe && /\.exe$/i.test(g.exe) && fs.existsSync(g.exe) ? g.exe : null;
+    if (!exe && g.path && fs.existsSync(g.path)) exe = findGameExe(g.path, g.name);
+    if (!exe) return null;
+    const hit = gameIconCache.get(exe);
+    if (hit) return hit;
+    try {
+      const img = await app.getFileIcon(exe, { size: 'large' });
+      if (img.isEmpty()) return null;
+      const url = img.toDataURL();
+      gameIconCache.set(exe, url);
+      return url;
+    } catch { return null; }
+  },
 
   /** The active game and the saved sites (small, so they are written together). */
   save_meta: a => {

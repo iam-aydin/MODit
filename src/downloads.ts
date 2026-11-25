@@ -32,6 +32,13 @@ const stampFile = () => path.join(app.getPath('userData'), 'download-games.json'
 const loadStamps = () => { try { stamps = JSON.parse(fs.readFileSync(stampFile(), 'utf8')) || {}; } catch { stamps = {}; } };
 const saveStamps = () => { try { fs.writeFileSync(stampFile(), JSON.stringify(stamps)); } catch { /* not critical */ } };
 
+// the browser window listens to these to show "a download started"
+type DlEvent = (kind: 'start' | 'end', name: string) => void;
+const listeners: DlEvent[] = [];
+export const onDownloadEvent = (cb: DlEvent) => { listeners.push(cb); };
+const emit: DlEvent = (k, n) => { for (const f of listeners) { try { f(k, n); } catch { /* ignore */ } } };
+export const activeDownloads = () => [...list.values()].filter(d => d.state === 'downloading').length;
+
 const snapshot = () => [...list.values()].sort((a, b) => b.time - a.time);
 
 function flush(): void {
@@ -43,16 +50,15 @@ function push(now = false): void {
   else if (!timer) timer = setTimeout(flush, 250); // progress ticks are throttled
 }
 
-/** The browser session should look like a normal Chrome, or sites like Nexus Mods show endless "verify you are human" pages. */
+/** The browser session keeps Electron's own user agent on purpose: a Chrome user agent without matching Chrome client hints
+ *  looks like a fake to Cloudflare and makes its "verify you are human" check fail (error 600010). */
 export function browserSession() {
   const ses = session.fromPartition(PARTITION);
   if (!hooked) {
     hooked = true;
-    const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const ua = ses.getUserAgent()
-      .replace(/\s?Electron\/\S+/, '')
-      .replace(new RegExp('\\s?' + esc(app.getName()) + '\\/\\S+'), '');
-    ses.setUserAgent(ua);
+    // pages never get camera, microphone, notifications... without a prompt, which this browser does not have
+    ses.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
+    ses.setPermissionCheckHandler(() => false);
     ses.on('will-download', (_e, item) => track(item));
   }
   return ses;
@@ -78,6 +84,7 @@ function track(item: DownloadItem): void {
   list.set(id, dl);
   items.set(id, item);
   push(true);
+  emit('start', dl.name);
   item.on('updated', () => { dl.received = item.getReceivedBytes(); dl.total = item.getTotalBytes(); push(); });
   item.once('done', (_e, state) => {
     items.delete(id);
@@ -85,6 +92,7 @@ function track(item: DownloadItem): void {
     dl.state = state === 'completed' ? 'done' : state === 'cancelled' ? 'cancelled' : 'failed';
     if (dl.state !== 'done') rm(dest);
     push(true);
+    emit('end', dl.name);
     if (dl.state === 'done') getWin()?.webContents.send('downloaded', dest, dl.gameId);
   });
 }
@@ -126,6 +134,10 @@ const inDownloads = (p: string) => {
   const t = path.resolve(p);
   return t.startsWith(b + path.sep);
 };
+
+/** For the browser's downloads popup: the newest few downloads of the selected game, and a rescan of the folders. */
+export const recentDownloads = () => snapshot().filter(d => !activeGame || d.gameId === activeGame.id).slice(0, 8).map(d => ({ id: d.id, name: d.name, received: d.received, total: d.total, state: d.state }));
+export const refreshDownloads = () => { prune(); scan(); };
 
 export const downloadApi = {
   // the list mirrors the downloads folder: new files appear, deleted files disappear

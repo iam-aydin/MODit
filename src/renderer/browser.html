@@ -24,8 +24,11 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .ib:disabled{opacity:.3;cursor:default}
 #addr{flex:1;min-width:0;height:32px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:#ece9f7;padding:0 16px;font:inherit;outline:0;user-select:text}
 #addr:focus{border-color:rgba(120,140,255,.65)}
-#dl{padding:0 16px;height:32px;border-radius:999px;border:2px solid rgba(255,255,255,.22);background:linear-gradient(90deg,rgba(80,20,24,.9),rgba(22,34,80,.9)) border-box no-repeat;font-weight:600}
+#dl{display:inline-flex;align-items:center;padding:0 16px;height:32px;border-radius:999px;border:2px solid rgba(255,255,255,.22);background:linear-gradient(90deg,rgba(80,20,24,.9),rgba(22,34,80,.9)) border-box no-repeat;font-weight:600}
 #dl:hover{border-color:rgba(255,255,255,.4)}
+#dlDot{display:none;width:8px;height:8px;border-radius:50%;margin-left:9px;background:#8aa4ff;box-shadow:0 0 0 0 rgba(138,164,255,.7);animation:pulse 1.1s infinite}
+#dl.act #dlDot{display:inline-block}
+@keyframes pulse{70%{box-shadow:0 0 0 7px rgba(138,164,255,0)}100%{box-shadow:0 0 0 0 rgba(138,164,255,0)}}
 </style></head><body>
 <div id="tabs"></div>
 <div id="tools">
@@ -33,7 +36,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
   <button class="ib" id="fwd" title="Forward (Alt+Right)">&#9654;</button>
   <button class="ib" id="rel" title="Reload (F5)">&#10227;</button>
   <input id="addr" placeholder="Search or type a web address" spellcheck="false" autocomplete="off">
-  <button id="dl" title="Show the Downloads section in MODit">Downloads</button>
+  <button id="dl" title="Recent downloads">Downloads<span id="dlDot"></span></button>
 </div>
 <script>
 const $=s=>document.querySelector(s);
@@ -44,6 +47,7 @@ br.onState(s=>{
   const key=JSON.stringify([s.tabs,s.active]);
   if(key!==last){last=key;
     $('#tabs').innerHTML=s.tabs.map(t=>`<div class="tab ${t.id===s.active?'on':''}" data-id="${t.id}" title="${esc(t.title)}">${t.loading?'<span class="sp"></span>':t.favicon?'<img src="'+esc(t.favicon)+'" onerror="this.remove()">':''}<span class="t">${esc(t.title)}</span><span class="x" title="Close tab">&#10005;</span></div>`).join('')+'<button id="plus" title="New tab (Ctrl+T)">+</button>'}
+  $('#dl').classList.toggle('act',s.dls>0);$('#dl').title=s.dls>0?s.dls+' downloading':'Recent downloads';
   $('#back').disabled=!s.canBack;$('#fwd').disabled=!s.canForward;
   const cur=s.tabs.find(t=>t.id===s.active);
   $('#rel').innerHTML=cur&&cur.loading?'&#10005;':'&#10227;';

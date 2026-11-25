@@ -197,6 +197,27 @@ body.dragging,body.dragging *{cursor:grabbing!important}
 .scard .line small{color:var(--mut)}
 .scard input:not([type=checkbox]){flex:1;min-width:0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:10px 16px;color:var(--tx);outline:0;font:inherit}
 body.v-settings header>:not(h1){display:none!important}
+/* ===== game cards: tilt toward the cursor + light that follows it (the StartEmAll hover) ===== */
+#gGrid .gcard{animation-fill-mode:backwards;will-change:transform;transition:transform .5s cubic-bezier(.2,.8,.2,1),border-color .3s,box-shadow .3s,background .3s}
+#gGrid .gcard.tilting{transition:transform .12s ease-out,border-color .3s,box-shadow .3s,background .3s}
+#gGrid .gcard:hover{transform:perspective(800px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) scale(1.07);border-color:rgba(255,255,255,.4);box-shadow:0 18px 50px rgba(0,0,0,.45),0 0 28px rgba(139,92,246,.28)}
+#gGrid .gcard:active{transform:perspective(800px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) scale(.97)}
+#gGrid .gcard::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .3s;background:radial-gradient(circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.24),rgba(255,255,255,.08) 40%,rgba(255,255,255,0) 72%)}
+#gGrid .gcard:hover::after{opacity:1}
+.gcard .thumb .ph img.gico{width:46px;height:46px;object-fit:contain;display:block;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))}
+/* gcard clipping fix: the grid scrolls, so it clips whatever sticks out of it. Give the hovered card room (the negative margin keeps the layout unchanged). */
+#gGrid{padding:20px;margin:-20px}
+.gbox>.row{position:relative;z-index:2}
+#gGrid .gcard:hover{box-shadow:0 14px 30px rgba(0,0,0,.4),0 0 22px rgba(139,92,246,.25)}
+/* sidebar game icon, initials placeholder, context menu size */
+.dot.has{background:rgba(255,255,255,.08)}
+.dot img{width:26px;height:26px;object-fit:contain;display:block}
+.gcard .thumb .ph{font-size:30px;font-weight:700;color:rgba(255,255,255,.45)}
+.ctx button{font-size:15px;padding:8px 12px}
+/* backups section */
+.bkn{flex:1;min-width:0}
+.bkn b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bkn small{display:block;color:var(--mut)}
 </style></head><body>
 <div class="orb o1"></div><div class="orb o2"></div>
 <aside>
@@ -206,6 +227,7 @@ body.v-settings header>:not(h1){display:none!important}
   <button class="nav" data-v="profiles">Profiles</button>
   <button class="nav" data-v="browser">Browser</button>
   <button class="nav" data-v="downloads">Downloads</button>
+  <button class="nav" data-v="backups">Backups</button>
   <button class="nav bottom" data-v="settings">Settings</button>
 </aside>
 <main>
@@ -219,7 +241,7 @@ body.v-settings header>:not(h1){display:none!important}
     <div class="dllist" id="dlList"></div></section>
   <section class="view scroll" id="browser"><div class="bar"><input id="url" placeholder="Type or paste a web address"><button class="btn" id="go">Go</button></div>
     <div class="grid" id="siteGrid"></div></section>
-  <section class="view scroll" id="settings"><div class="set">
+  <section class="view scroll" id="backups"><div class="bar"><span class="lead">Before a mod replaces one of the game's own files, MODit saves the original here. Turning a mod off or removing it puts the originals back by itself.</span><button class="btn ghost" id="bkOpen">Open folder</button></div><div class="dllist" id="bkList"></div></section><section class="view scroll" id="settings"><div class="set">
     <div class="scard"><h3>Game covers</h3>
       <p>MODit downloads cover art from <a href="https://www.steamgriddb.com/profile/preferences/api" target="_blank">SteamGridDB</a> a few seconds after you add a game, while you are online. It needs a free API key: sign in on SteamGridDB, open Preferences &gt; API and paste the key here.</p>
       <div class="line"><input id="sgKey" type="password" placeholder="SteamGridDB API key" spellcheck="false" autocomplete="off"><button class="btn" id="sgSave">Save</button></div>
@@ -279,7 +301,7 @@ let tt;function toast(m,ms=2800){const t=$('#toast');t.textContent=m;t.classList
 function sync(){
   if(!inv||!game())return;
   const gid=S.game,md=modsDir();
-  enqueue(()=>{const d=S.data[gid];return d&&inv('sync_profile',{game:gid,modsDir:md,profile:d.active,state:d})});
+  enqueue(()=>{const d=S.data[gid];return d&&inv('sync_profile',{game:gid,modsDir:md,profile:d.active,state:d}).then(noteBackup)});
 }
 
 // ---- render ----
@@ -289,7 +311,7 @@ function render(){
   document.body.classList.toggle('nogame',!g);
   $('#gName').textContent=g?g.name:'No game selected';
   $('#gSub').textContent=g?'Switch game':'Add a game to start';
-  $('#gDot').textContent=g?initials(g.name):'＋';
+  setDot(g);loadGameIcons();
   if(!g||!d){
     $('#grid').innerHTML='<div class="empty">Add a game to get started<br><br><button class="btn" id="emptyAdd">Add game</button></div>';
     $('#profGrid').innerHTML='<div class="empty">Add a game first, then create profiles</div>';
@@ -328,9 +350,21 @@ $('#mkProf').onclick=()=>{const d=cur(),v=$('#newProf').value.trim();if(d&&v&&!d
 
 // ---- games ----
 const coverImg=g=>g.cover?`<img alt="" draggable="false" loading="lazy" src="modit://cover/${encodeURIComponent(g.cover)}" onload="this.classList.add('ok')" onerror="this.remove()">`:'';
-const thumbHtml=g=>'<span class="ph">🎮</span>'+coverImg(g);
+const gIcons={},gBusy={};
+function setDot(g){const el=$('#gDot');if(!el)return;
+  if(!g){el.classList.remove('has');el.textContent='\uFF0B';return}
+  if(gIcons[g.id]){el.classList.add('has');el.innerHTML=iconImg(gIcons[g.id])}
+  else{el.classList.remove('has');el.textContent=initials(g.name)}}
+const iconImg=d=>'<img class="gico" alt="" draggable="false" src="'+d+'">';
+const thumbHtml=g=>'<span class="ph">'+(gIcons[g.id]?iconImg(gIcons[g.id]):esc(initials(g.name)))+'</span>'+coverImg(g);
+// icon of the game's .exe, shown behind/instead of the cover
+function loadGameIcons(){if(!inv)return;S.games.forEach(g=>{
+  if(gIcons[g.id]||gBusy[g.id])return;gBusy[g.id]=1;
+  inv('get_game_icon',{id:g.id}).then(d=>{if(!d)return;gIcons[g.id]=d;
+    const ph=document.querySelector('#gGrid .gcard[data-g="'+CSS.escape(g.id)+'"] .thumb .ph');if(ph)ph.innerHTML=iconImg(d);setDot(game())})
+  .catch(()=>{}).finally(()=>{delete gBusy[g.id]})})}
 function patchThumb(g){const el=document.querySelector('#gGrid .gcard[data-g="'+CSS.escape(g.id)+'"] .thumb');if(el)el.innerHTML=thumbHtml(g)}
-function drawGames(){
+function drawGames(){setTimeout(loadGameIcons,0);
  $('#gGrid').innerHTML=S.games.length?S.games.map(g=>`<div class="card gcard ${g.id==S.game?'cur':''}" data-g="${esc(g.id)}"><button class="rm" data-rg="${esc(g.id)}" title="Remove game">✕</button><div class="thumb">${thumbHtml(g)}</div><h3>${esc(g.name)}</h3><small>${g.id==S.game?'Current':'Switch'}</small></div>`).join(''):'<div class="empty">No games yet. Press Add Game.</div>'}
 $('#gameBtn').onclick=()=>{if(!S.games.length){pickGame();return}drawGames();$('#gm').classList.add('on')};
 function addGame(name,path,modsDir,modFolder){
@@ -341,7 +375,7 @@ function addGame(name,path,modsDir,modFolder){
  S.games.push(g);S.data[id]=data;
  if(inv)inv('add_game',{rec:g,data}).catch(e=>failToast(e)); // the cover is looked up in the background a few seconds later
  selectGame(id)}
-function selectGame(id){S.game=id;dlFilter=id;if(typeof fillFilter==='function'){fillFilter();drawDl(dlAll)}save();render();drawGames();$('#gm').classList.remove('on');sync()}
+function selectGame(id){S.game=id;dlFilter='';if(typeof fillFilter==='function'){fillFilter();drawDl(dlAll)}save();render();drawGames();$('#gm').classList.remove('on');sync()}
 // One folder is all it takes: MODit finds the game's Paks folder (and its Mods, ~mods and LogicMods) itself.
 async function pickGame(){
  if(T&&T.dialog){
@@ -361,7 +395,7 @@ async function removeMod(id){
  if(!await confirmBox(`Remove "${m.name}"? It will be taken out of the game and deleted from MODit.`))return;
  d.mods=d.mods.filter(x=>x.id!==id);Object.values(d.profiles).forEach(p=>delete p[id]);
  save();render();
- if(inv)enqueue(()=>inv('remove_mod',{game:g.id,id,root:m.root,modsDir:g.modsDir}))}
+ if(inv)enqueue(()=>inv('remove_mod',{game:g.id,id,root:m.root,kind:m.kind,modsDir:g.modsDir}))}
 async function removeGame(id){
  const g=S.games.find(x=>x.id===id),d=S.data[id];if(!g)return;
  if(!await askUi({title:'Are you sure?',msg:`Remove "${g.name}" from MODit? Its mods are taken out of the game's folder and its profiles are deleted. The game itself is not touched.`,ok:'Remove',danger:true}))return;
@@ -399,7 +433,7 @@ function promptUi({title,value='',ok='OK'}){return new Promise(res=>{
 const ctx=$('#ctx');let ctxId=null;
 function openCtx(x,y,id){
   const g=S.games.find(v=>v.id===id);if(!g)return;ctxId=id;
-  ctx.innerHTML=`<button data-c="cover">🖼&nbsp; Set cover image</button>${g.coverCustom?'<button data-c="resetcover">↺&nbsp; Use the online cover</button>':''}<button data-c="folder">📂&nbsp; Open folder</button><button data-c="rename">✏️&nbsp; Rename</button><hr><button class="danger" data-c="remove">🗑&nbsp; Remove</button>`;
+  ctx.innerHTML=`<button data-c="cover">Set cover image</button>${g.coverCustom?'<button data-c="resetcover">Use the online cover</button>':''}<button data-c="folder">Open folder</button><button data-c="rename">Rename</button><hr><button class="danger" data-c="remove">Remove</button>`;
   ctx.classList.add('on');
   const r=ctx.getBoundingClientRect();
   ctx.style.left=Math.max(8,Math.min(x,innerWidth-r.width-8))+'px';
@@ -494,26 +528,28 @@ $('#openGame').onclick=()=>{const g=game();if(!inv||!g)return;if(!g.path){toast(
 // ---- downloads ----
 const fmt=b=>b>=1073741824?(b/1073741824).toFixed(2)+' GB':b>=1048576?(b/1048576).toFixed(1)+' MB':b>=1024?Math.round(b/1024)+' KB':b+' B';
 let dlKey='',dlData=[],dlAll=[],dlFilter=''; // '' = follow the selected game
+const dlF=()=>dlFilter||S.game||'all';
 const ST={downloading:'Downloading',done:'Ready',failed:'Failed',cancelled:'Cancelled'};
 function dlSub(d){return d.state=='downloading'?(d.total>0?fmt(d.received)+' / '+fmt(d.total):fmt(d.received)):d.state=='done'?fmt(d.total||d.received):ST[d.state]}
 function drawDl(list){
   dlAll=list||[];
   if($('#dlMenu').children.length!==S.games.length+2)fillFilter();
   dlData=dlAll.filter(dlMatch);
-  const key=dlFilter+'|'+dlData.map(d=>d.id+d.state).join();
+  const key=dlF()+'|'+dlData.map(d=>d.id+d.state).join();
   if(key!==dlKey){dlKey=key;
-    $('#dlList').innerHTML=dlData.length?dlData.map(d=>`<div class="dl ${d.state}" data-id="${esc(d.id)}"><div class="info"><div class="nm">${esc(d.name)}</div><div class="meta"><small class="sub">${esc(dlSub(d))}</small>${dlGame(d)&&dlFilter!==d.gameId?`<span class="tag">${esc(dlGame(d))}</span>`:''}</div><div class="prog"><i></i></div></div>
+    $('#dlList').innerHTML=dlData.length?dlData.map(d=>`<div class="dl ${d.state}" data-id="${esc(d.id)}"><div class="info"><div class="nm">${esc(d.name)}</div><div class="meta"><small class="sub">${esc(dlSub(d))}</small>${dlGame(d)&&dlF()!==d.gameId?`<span class="tag">${esc(dlGame(d))}</span>`:''}</div><div class="prog"><i></i></div></div>
       <div class="acts">${d.state=='downloading'?`<button class="btn ghost sm" data-dl="cancel">Cancel</button>`:d.state=='done'?`${/\.(zip|7z|rar|pak|ucas|utoc|tkmod)$/i.test(d.name)?'<button class="btn sm" data-dl="install">Install</button>':''}<button class="btn ghost sm" data-dl="show">Show</button><button class="btn ghost sm" data-dl="remove">✕</button>`:`<button class="btn ghost sm" data-dl="remove">✕</button>`}</div></div>`).join(''):(dlAll.length?'<div class="empty">No downloads for this game yet.</div>':'<div class="empty">Nothing downloaded yet.<br>Files you download in the Browser tab appear here.</div>')}
   dlData.forEach(d=>{const el=$('#dlList .dl[data-id="'+CSS.escape(d.id)+'"]');if(!el)return;
     el.querySelector('.sub').textContent=dlSub(d);
     el.querySelector('.prog i').style.width=(d.total>0?Math.min(100,d.received/d.total*100):0)+'%'})}
 function dlGame(d){const g=S.games.find(x=>x.id===d.gameId);return g?g.name:(d.gameName||'')}
-function dlMatch(d){return dlFilter==='all'||(dlFilter==='?'?(!d.gameId||!S.games.some(g=>g.id===d.gameId)):d.gameId===dlFilter)}
+function dlMatch(d){const f=dlF();return f==='all'||(f==='?'?(!d.gameId||!S.games.some(g=>g.id===d.gameId)):d.gameId===f)}
 function fillFilter(){
   const opts=[['all','All games']].concat(S.games.map(g=>[g.id,g.name]),[['?','Other / unknown']]);
-  if(!dlFilter||!opts.some(o=>o[0]===dlFilter))dlFilter=S.game||'all';
-  $('#dlLabel').textContent=(opts.find(o=>o[0]===dlFilter)||opts[0])[1];
-  $('#dlMenu').innerHTML=opts.map(o=>`<div class="ddi nm ${o[0]===dlFilter?'on':''}" data-df="${esc(o[0])}">${esc(o[1])}</div>`).join('')}
+  if(dlFilter&&!opts.some(o=>o[0]===dlFilter))dlFilter='';
+  const f=dlF();
+  $('#dlLabel').textContent=(opts.find(o=>o[0]===f)||opts[0])[1];
+  $('#dlMenu').innerHTML=opts.map(o=>`<div class="ddi nm ${o[0]===f?'on':''}" data-df="${esc(o[0])}">${esc(o[1])}</div>`).join('')}
 $('#dlList').onclick=async e=>{const b=e.target.closest('[data-dl]');if(!b||!inv)return;
   const id=b.closest('.dl').dataset.id,d=dlData.find(x=>x.id===id);if(!d)return;
   const a=b.dataset.dl;
@@ -522,7 +558,7 @@ $('#dlList').onclick=async e=>{const b=e.target.closest('[data-dl]');if(!b||!inv
     if(d.gameId&&d.gameId!==S.game&&!await confirmBox('This was downloaded for '+(d.gameName||'another game')+', but '+(game()?game().name:'no game')+' is selected.\n\nInstall it anyway?'))return;
     handlePaths([d.path])}
   else inv(a=='cancel'?'cancel_download':a=='show'?'show_download':'remove_download',{dlId:id}).catch(failToast)};
-$('#dlDir').onclick=()=>{if(inv)inv('open_downloads_dir',{game:S.games.some(g=>g.id===dlFilter)?dlFilter:''}).catch(failToast)};
+$('#dlDir').onclick=()=>{if(inv)inv('open_downloads_dir',{game:S.games.some(g=>g.id===dlF())?dlF():''}).catch(failToast)};
 $('#dlBtn').onclick=()=>$('#dlDd').classList.toggle('open');
 $('#dlMenu').onclick=e=>{const o=e.target.closest('[data-df]');if(!o)return;dlFilter=o.dataset.df;$('#dlDd').classList.remove('open');fillFilter();drawDl(dlAll)};
 document.addEventListener('click',e=>{if(!e.target.closest('#dlDd'))$('#dlDd').classList.remove('open')});
@@ -534,6 +570,7 @@ function showView(v){
   n.classList.add('on');$('#'+v).classList.add('on');$('#title').textContent=n.textContent;
   document.body.classList.toggle('v-settings',v==='settings');
   if(v==='settings')drawSettings();
+  if(v==='backups')drawBackups();
   if(v==='downloads'){fillFilter();if(inv)inv('list_downloads').then(drawDl).catch(()=>{})}}
 // the Browser section always asks first: a mod for the wrong game can break an install
 function askBrowser(){
@@ -615,7 +652,7 @@ function install(cmd,args){
       ns=d;names.forEach(n=>{ns.mods=ns.mods.filter(m=>m.id!==n);ns.mods.push({id:n,name:n,root:'Mods'})})}
     ns.mods.forEach(m=>{if(!(m.id in ns.profiles[ns.active]))ns.profiles[ns.active][m.id]=true});
     S.data[gid]=ns;save(gid);render();
-    if(inv)await inv('sync_profile',{game:gid,modsDir:md,profile:ns.active,state:ns});
+    if(inv)noteBackup(await inv('sync_profile',{game:gid,modsDir:md,profile:ns.active,state:ns}));
   });
 }
 async function handleArchive(path){
@@ -661,7 +698,7 @@ async function play(pick){
       if(r&&r.ok){toast('Starting '+g.name+(r.how==='steam'?' through Steam':'')+'...');return}}
     const p=await T.dialog.open({title:'Select the program (.exe) that starts '+g.name,defaultPath:g.path||undefined,filters:[{name:'Programs',extensions:['exe']}]});
     if(!p)return;
-    g.exe=String(p);inv('set_game_exe',{id:g.id,exe:g.exe}).catch(failToast);
+    g.exe=String(p);inv('set_game_exe',{id:g.id,exe:g.exe}).then(()=>{delete gIcons[g.id];loadGameIcons()}).catch(failToast);
     const r=await inv('play_game',{path:g.path||'',exe:g.exe,name:g.name});
     toast(r&&r.ok?'Starting '+g.name+'...':'Could not start '+g.name)
   }catch(e){failToast(e)}}
@@ -671,4 +708,41 @@ $('#playBtn').oncontextmenu=e=>{e.preventDefault();play(true)};
 // ---- start ----
 if(inv)inv('load_state').then(s=>{if(s&&s.v===2)S=s;if(!Array.isArray(S.sites))S.sites=DEFAULT_SITES.map(x=>({...x}));if(!S.settings)S.settings={sgdbKey:'',skipBrowserWarn:false};drawSites();render()});
 drawSites();render();
+// ---- game cards: tilt toward the mouse (ported from StartEmAll) ----
+(function(){
+ const TILT=16;let cur=null,box=null;
+ const clamp=v=>Math.max(-1,Math.min(1,v));
+ const reset=c=>{c.classList.remove('tilting');['--rx','--ry'].forEach(k=>c.style.removeProperty(k))};
+ const enter=c=>{if(cur&&cur!==c)reset(cur);cur=c;box=c.getBoundingClientRect();c.classList.add('tilting')};
+ const leave=()=>{if(cur){reset(cur);cur=null}};
+ document.addEventListener('mouseover',e=>{const c=e.target.closest&&e.target.closest('#gGrid .gcard');if(c&&c!==cur)enter(c)});
+ document.addEventListener('mouseout',e=>{if(cur&&!(e.relatedTarget&&cur.contains(e.relatedTarget)))leave()});
+ document.addEventListener('mousemove',e=>{
+  if(!cur){const c=e.target.closest&&e.target.closest('#gGrid .gcard');if(!c)return;enter(c)}
+  const nx=clamp((e.clientX-box.left)/box.width*2-1),ny=clamp((e.clientY-box.top)/box.height*2-1);
+  // cursor on the top-right pushes that corner away, bottom-left comes closer
+  cur.style.setProperty('--rx',(-ny*TILT).toFixed(2)+'deg');
+  cur.style.setProperty('--ry',(nx*TILT).toFixed(2)+'deg');
+  cur.style.setProperty('--mx',((nx+1)*50).toFixed(1)+'%');
+  cur.style.setProperty('--my',((ny+1)*50).toFixed(1)+'%')});
+ document.addEventListener('scroll',leave,true);
+})();
+// ---- backups: the game's own files that a mod replaced ----
+const fmtSize=n=>n>=1073741824?(n/1073741824).toFixed(1)+' GB':n>=1048576?(n/1048576).toFixed(1)+' MB':n>=1024?Math.round(n/1024)+' KB':n+' B';
+const noteBackup=r=>{if(!r||!r.backedUp||!r.backedUp.length)return;const n=r.backedUp.length;
+  toast(n==1?'Backed up the original "'+r.backedUp[0]+'" before the mod replaced it. See Backups.':'Backed up '+n+' original game files before the mods replaced them. See Backups.',8000);
+  if($('#backups').classList.contains('on'))drawBackups()};
+async function drawBackups(){
+  const box=$('#bkList'),g=game();
+  if(!g){box.innerHTML='<div class="empty">Add a game first</div>';return}
+  if(!inv){box.innerHTML='<div class="empty">Backups are only available in the app</div>';return}
+  let r;try{r=await inv('list_backups')}catch(e){failToast(e);return}
+  if(!r.supported){box.innerHTML='<div class="empty">'+esc(g.name)+' does not need backups: its mods stay in their own folder and never replace the game\'s files.</div>';return}
+  box.innerHTML=r.files.length?r.files.map(f=>'<div class="dl"><div class="bkn"><b>'+esc(f.rel)+'</b><small>Original file, replaced by '+esc(f.mod)+' &middot; '+fmtSize(f.size)+' &middot; '+esc(new Date(f.time).toLocaleString())+'</small></div><button class="btn ghost" data-bk="'+esc(f.rel)+'">Restore</button></div>').join(''):'<div class="empty">Nothing backed up yet.<br>When a mod replaces one of the game\'s own files, the original is saved here first.</div>'}
+$('#bkList').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-bk]');if(!b)return;
+  if(!await confirmBox('Put the original file back? The mod that replaced it will no longer have this file.'))return;
+  await enqueue(()=>inv('restore_backup',{file:b.dataset.bk}).then(()=>toast('Original file restored')));
+  drawBackups()});
+$('#bkOpen').onclick=()=>{if(inv)inv('open_backups').catch(failToast)};
 </script></body></html>

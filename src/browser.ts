@@ -1,6 +1,6 @@
-import { BrowserWindow, clipboard, ipcMain, Menu, WebContents, WebContentsView } from 'electron';
+import { BrowserWindow, clipboard, ipcMain, WebContents, WebContentsView } from 'electron';
 import path from 'path';
-import { browserSession, PARTITION } from './downloads';
+import { activeDownloads, browserSession, downloadApi, onDownloadEvent, PARTITION, recentDownloads, refreshDownloads } from './downloads';
 
 // The MODit browser: one window with a tab strip + address bar (renderer/browser.html) on top
 // and one WebContentsView per tab below it.
@@ -22,6 +22,21 @@ let tabs: Tab[] = [];
 let active = 0;
 let nextId = 1;
 let getMain: () => BrowserWindow | null = () => null;
+// the downloads popup under the toolbar's Downloads button
+let dlPanel: WebContentsView | null = null;
+let dlOpen = false;
+let dlHiddenAt = 0;
+let dlHeight = 200;
+let dlHideTimer: NodeJS.Timeout | null = null;
+let dlAutoTimer: NodeJS.Timeout | null = null;
+const DL_W = 360;
+// the app-styled right-click menu (a small page in its own view, so it can look like the rest of MODit)
+interface MenuItem { label?: string; enabled?: boolean; sep?: boolean; act?: () => void }
+let menuView: WebContentsView | null = null;
+let menuOpen = false;
+let menuItems: MenuItem[] = [];
+let menuHideTimer: NodeJS.Timeout | null = null;
+const MENU_W = 270;
 
 const isWeb = (u: string) => /^https?:\/\//i.test(u);
 const alive = (w: BrowserWindow | null): w is BrowserWindow => !!w && !w.isDestroyed();
@@ -46,6 +61,8 @@ function layout(): void {
   const [w, h] = win.getContentSize();
   chrome?.setBounds({ x: 0, y: 0, width: w, height: CHROME_H });
   current()?.view.setBounds({ x: 0, y: CHROME_H, width: w, height: Math.max(0, h - CHROME_H) });
+  placeDl();
+  hideMenu();
 }
 
 /** Send the tab list + navigation state to the toolbar. */
@@ -61,6 +78,7 @@ function push(): void {
     }),
     active,
     url: isWeb(url) ? url : '',
+    dls: activeDownloads(),
     canBack: !!wc && wc.navigationHistory.canGoBack(),
     canForward: !!wc && wc.navigationHistory.canGoForward(),
   });
@@ -79,6 +97,8 @@ function activate(id: number): void {
   active = id;
   for (const x of tabs) { try { win.contentView.removeChildView(x.view); } catch { /* was not attached */ } }
   win.contentView.addChildView(t.view);
+  hideMenu();
+  if (dlOpen && dlPanel) win.contentView.addChildView(dlPanel); // the popup stays on top of the page
   layout();
   push();
   const wc = wcOf(t);
@@ -145,31 +165,54 @@ function hookKeys(wc: WebContents): void {
 /** Right-click menu inside a page. */
 function showMenu(tab: Tab, p: Electron.ContextMenuParams): void {
   const wc = tab.view.webContents;
-  const items: Electron.MenuItemConstructorOptions[] = [];
+  const items: MenuItem[] = [];
   const link = p.linkURL;
+  const sep = () => { if (items.length && !items[items.length - 1].sep) items.push({ sep: true }); };
   if (link && isWeb(link)) {
     items.push(
-      { label: 'Open link in new tab', click: () => openTab(link, { foreground: false, opener: tab.id }) },
-      { label: 'Open link in new tab and switch to it', click: () => openTab(link, { opener: tab.id }) },
-      { label: 'Copy link address', click: () => clipboard.writeText(link) },
-      { type: 'separator' },
+      { label: 'Open link in new tab', act: () => openTab(link, { foreground: false, opener: tab.id }) },
+      { label: 'Open link in new tab and switch to it', act: () => openTab(link, { opener: tab.id }) },
+      { label: 'Copy link address', act: () => clipboard.writeText(link) },
     );
+    sep();
   }
   if (p.mediaType === 'image' && isWeb(p.srcURL)) {
     items.push(
-      { label: 'Open image in new tab', click: () => openTab(p.srcURL, { foreground: false, opener: tab.id }) },
-      { label: 'Copy image address', click: () => clipboard.writeText(p.srcURL) },
-      { type: 'separator' },
+      { label: 'Open image in new tab', act: () => openTab(p.srcURL, { foreground: false, opener: tab.id }) },
+      { label: 'Copy image address', act: () => clipboard.writeText(p.srcURL) },
     );
+    sep();
   }
-  if (p.isEditable) items.push({ role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { type: 'separator' });
-  else if (p.selectionText) items.push({ role: 'copy' }, { type: 'separator' });
+  if (p.isEditable) {
+    items.push(
+      { label: 'Cut', enabled: p.editFlags.canCut, act: () => { wc.focus(); wc.cut(); } },
+      { label: 'Copy', enabled: p.editFlags.canCopy, act: () => { wc.focus(); wc.copy(); } },
+      { label: 'Paste', enabled: p.editFlags.canPaste, act: () => { wc.focus(); wc.paste(); } },
+    );
+    sep();
+  } else if (p.selectionText) {
+    items.push({ label: 'Copy', act: () => { wc.focus(); wc.copy(); } });
+    sep();
+  }
   items.push(
-    { label: 'Back', enabled: wc.navigationHistory.canGoBack(), click: () => wc.navigationHistory.goBack() },
-    { label: 'Forward', enabled: wc.navigationHistory.canGoForward(), click: () => wc.navigationHistory.goForward() },
-    { label: 'Reload', click: () => wc.reload() },
+    { label: 'Back', enabled: wc.navigationHistory.canGoBack(), act: () => wc.navigationHistory.goBack() },
+    { label: 'Forward', enabled: wc.navigationHistory.canGoForward(), act: () => wc.navigationHistory.goForward() },
+    { label: 'Reload', act: () => wc.reload() },
   );
-  Menu.buildFromTemplate(items).popup({ window: win ?? undefined });
+  popupMenu(items, p.x, p.y + CHROME_H); // the page view starts below the toolbar
+}
+
+/** Right-click menu in the address bar. */
+function showAddressMenu(p: Electron.ContextMenuParams): void {
+  const c = chrome?.webContents;
+  if (!c || !p.isEditable) return;
+  popupMenu([
+    { label: 'Cut', enabled: p.editFlags.canCut, act: () => { c.focus(); c.cut(); } },
+    { label: 'Copy', enabled: p.editFlags.canCopy, act: () => { c.focus(); c.copy(); } },
+    { label: 'Paste', enabled: p.editFlags.canPaste, act: () => { c.focus(); c.paste(); } },
+    { sep: true },
+    { label: 'Select all', act: () => { c.focus(); c.selectAll(); } },
+  ], p.x, p.y);
 }
 
 function wire(tab: Tab): void {
@@ -205,6 +248,7 @@ function create(): void {
   c.webContents.loadFile(path.join(__dirname, 'renderer', 'browser.html')).catch(() => undefined);
   c.webContents.on('will-navigate', e => e.preventDefault());
   c.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  c.webContents.on('context-menu', (_e, p) => showAddressMenu(p));
   hookKeys(c.webContents);
   w.on('resize', layout);
   w.on('maximize', layout);
@@ -216,12 +260,150 @@ function create(): void {
     for (const t of tabs) if (!t.view.webContents.isDestroyed()) t.view.webContents.close();
     if (!c.webContents.isDestroyed()) c.webContents.close();
     tabs = [];
+    if (dlPanel && !dlPanel.webContents.isDestroyed()) dlPanel.webContents.close();
+    if (menuView && !menuView.webContents.isDestroyed()) menuView.webContents.close();
+    dlPanel = null;
+    menuView = null;
+    dlOpen = false;
+    menuOpen = false;
     chrome = null;
     win = null;
     active = 0;
   });
   layout();
 }
+
+// ---------- downloads popup ----------
+function placeDl(): void {
+  if (!alive(win) || !dlPanel || !dlOpen) return;
+  const [w, h] = win.getContentSize();
+  const ph = Math.min(dlHeight, Math.max(120, h - CHROME_H - 12));
+  dlPanel.setBounds({ x: Math.max(0, w - DL_W - 10), y: CHROME_H, width: DL_W, height: ph });
+}
+
+function hideDl(): void {
+  if (!dlOpen) return;
+  dlOpen = false;
+  dlHiddenAt = Date.now();
+  if (dlAutoTimer) { clearTimeout(dlAutoTimer); dlAutoTimer = null; }
+  const v = dlPanel;
+  if (!v || v.webContents.isDestroyed()) return;
+  v.webContents.send('dl:close'); // the page plays its closing animation, then the view is taken away
+  dlHideTimer = setTimeout(() => {
+    dlHideTimer = null;
+    if (!dlOpen && alive(win)) { try { win.contentView.removeChildView(v); } catch { /* not attached */ } }
+  }, 230);
+}
+
+function showDl(focus = true): void {
+  if (!alive(win)) return;
+  if (dlHideTimer) { clearTimeout(dlHideTimer); dlHideTimer = null; }
+  if (!dlPanel || dlPanel.webContents.isDestroyed()) {
+    dlPanel = new WebContentsView({
+      webPreferences: { preload: path.join(__dirname, 'dlpanel-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+    });
+    dlPanel.setBackgroundColor('#00000000');
+    dlPanel.webContents.loadFile(path.join(__dirname, 'renderer', 'dlpanel.html')).catch(() => undefined);
+    dlPanel.webContents.on('before-input-event', (e, i) => { if (i.type === 'keyDown' && i.key === 'Escape') { e.preventDefault(); hideDl(); } });
+  }
+  refreshDownloads();
+  dlOpen = true;
+  win.contentView.addChildView(dlPanel);
+  placeDl();
+  if (focus) { if (dlAutoTimer) { clearTimeout(dlAutoTimer); dlAutoTimer = null; } dlPanel.webContents.focus(); }
+  dlPanel.webContents.send('dl:open');
+}
+
+/** A download just started: pop the list open for a few seconds (without taking focus from the page). */
+onDownloadEvent((kind) => {
+  push();
+  if (kind !== 'start' || !alive(win)) return;
+  showDl(false);
+  if (dlAutoTimer) clearTimeout(dlAutoTimer);
+  dlAutoTimer = setTimeout(() => { dlAutoTimer = null; hideDl(); }, 5000);
+});
+
+/** Bring the main MODit window forward and open its Downloads section. */
+function openAppDownloads(): void {
+  const m = getMain();
+  if (m && !m.isDestroyed()) {
+    if (m.isMinimized()) m.restore();
+    m.show();
+    m.focus();
+    m.webContents.send('goto', 'downloads');
+  }
+}
+
+const fromDl = (e: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent) => !!dlPanel && !dlPanel.webContents.isDestroyed() && e.sender === dlPanel.webContents;
+ipcMain.handle('br:dl', (e, name: string, id?: string) => {
+  if (!fromDl(e)) return null;
+  switch (name) {
+    case 'list': return recentDownloads();
+    case 'show': downloadApi.show_download({ dlId: String(id) }); return null;
+    case 'cancel': downloadApi.cancel_download({ dlId: String(id) }); return null;
+    case 'all': hideDl(); openAppDownloads(); return null;
+  }
+  return null;
+});
+ipcMain.on('br:dl-size', (e, h: number) => { if (fromDl(e) && Number.isFinite(h)) { dlHeight = Math.min(480, Math.max(100, Math.ceil(h))); placeDl(); } });
+ipcMain.on('br:dl-blur', e => { if (fromDl(e) && !dlAutoTimer) hideDl(); }); // clicked somewhere else
+ipcMain.on('br:dl-keep', e => { // the mouse is over the popup: keep it open and let it take focus
+  if (!fromDl(e)) return;
+  if (dlAutoTimer) { clearTimeout(dlAutoTimer); dlAutoTimer = null; }
+  if (dlOpen) dlPanel?.webContents.focus();
+});
+ipcMain.on('br:dl-ready', e => { if (fromDl(e) && dlOpen) e.sender.send('dl:open'); });
+
+// ---------- right-click menu ----------
+const menuHeight = (items: MenuItem[]) => 18 + items.reduce((n, i) => n + (i.sep ? 11 : 34), 0);
+
+function sendMenu(): void {
+  if (!menuView || menuView.webContents.isDestroyed() || !menuOpen) return;
+  menuView.webContents.send('menu:show', menuItems.map(i => ({ label: i.label, enabled: i.enabled !== false, sep: !!i.sep })));
+}
+
+function hideMenu(): void {
+  if (!menuOpen) return;
+  menuOpen = false;
+  const v = menuView;
+  if (!v || v.webContents.isDestroyed()) return;
+  v.webContents.send('menu:close');
+  menuHideTimer = setTimeout(() => {
+    menuHideTimer = null;
+    if (!menuOpen && alive(win)) { try { win.contentView.removeChildView(v); } catch { /* not attached */ } }
+  }, 230);
+}
+
+/** Show a menu with its top-left corner at (x, y) in window coordinates. */
+function popupMenu(items: MenuItem[], x: number, y: number): void {
+  if (!alive(win) || !items.length) return;
+  if (menuHideTimer) { clearTimeout(menuHideTimer); menuHideTimer = null; }
+  if (!menuView || menuView.webContents.isDestroyed()) {
+    menuView = new WebContentsView({
+      webPreferences: { preload: path.join(__dirname, 'menu-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+    });
+    menuView.setBackgroundColor('#00000000');
+    menuView.webContents.loadFile(path.join(__dirname, 'renderer', 'menu.html')).catch(() => undefined);
+  }
+  menuItems = items;
+  const [w, h] = win.getContentSize();
+  const mh = menuHeight(items);
+  menuOpen = true;
+  win.contentView.addChildView(menuView);
+  menuView.setBounds({ x: Math.max(4, Math.min(x, w - MENU_W - 4)), y: Math.max(4, Math.min(y, h - mh - 4)), width: MENU_W, height: mh });
+  menuView.webContents.focus();
+  sendMenu();
+}
+
+const fromMenu = (e: Electron.IpcMainEvent) => !!menuView && !menuView.webContents.isDestroyed() && e.sender === menuView.webContents;
+ipcMain.on('br:menu-ready', e => { if (fromMenu(e)) sendMenu(); });
+ipcMain.on('br:menu-blur', e => { if (fromMenu(e)) hideMenu(); });
+ipcMain.on('br:menu-pick', (e, i: number) => {
+  if (!fromMenu(e)) return;
+  const it = menuItems[Number(i)];
+  hideMenu();
+  if (it && !it.sep && it.enabled !== false) { try { it.act?.(); } catch { /* ignore */ } }
+});
 
 // ---------- commands from the toolbar ----------
 ipcMain.on('br', (e, name: string, arg: unknown) => {
@@ -242,16 +424,10 @@ ipcMain.on('br', (e, name: string, arg: unknown) => {
     case 'new': openTab(null); break;
     case 'close': closeTab(Number(arg)); break;
     case 'activate': activate(Number(arg)); break;
-    case 'downloads': {
-      const m = getMain();
-      if (m && !m.isDestroyed()) {
-        if (m.isMinimized()) m.restore();
-        m.show();
-        m.focus();
-        m.webContents.send('goto', 'downloads');
-      }
+    case 'downloads':
+      // toggles the popup; a click that just closed it (by moving focus) must not reopen it
+      if (dlOpen) hideDl(); else if (Date.now() - dlHiddenAt > 300) showDl();
       break;
-    }
   }
 });
 

@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>MODit</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: modit:">
+<style>
+:root{--bg:#0b0912;--panel:#13101d;--card:#1a1628;--line:#2a2440;--tx:#ece9f7;--mut:#8c85a6;--pu:#8b5cf6;--pu2:#a78bfa;color-scheme:dark}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--tx);font:14px system-ui,'Segoe UI',sans-serif;display:flex;overflow:hidden}
+button{font:inherit;color:inherit;border:0;cursor:pointer;background:none}
+aside{width:220px;background:var(--panel);padding:18px 14px;display:flex;flex-direction:column;gap:6px;border-right:1px solid var(--line)}
+.game{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:var(--card);margin-bottom:14px;transition:.25s;width:100%;text-align:left}
+.game:hover{background:#221c36;transform:translateY(-1px)}
+.game b{display:block}.game small{color:var(--mut)}
+.dot{width:34px;height:34px;border-radius:12px;background:linear-gradient(135deg,var(--pu),#5b21b6);display:grid;place-items:center;font-weight:700}
+.nav{padding:11px 14px;border-radius:14px;text-align:left;color:var(--mut);transition:.25s}
+.nav:hover{color:var(--tx);background:#1a1628}
+.nav.on{background:rgba(139,92,246,.16);color:var(--pu2)}
+main{flex:1;display:flex;flex-direction:column;min-width:0}
+header{display:flex;align-items:center;gap:12px;padding:18px 26px}
+header h1{font-size:20px;flex:1}
+select{background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:999px;padding:9px 16px;font:inherit;outline:0}
+.btn{background:var(--pu);padding:10px 18px;border-radius:999px;font-weight:600;transition:.25s}
+.btn:hover{background:#9d74f8;transform:translateY(-1px);box-shadow:0 6px 20px rgba(139,92,246,.35)}
+.btn.ghost{background:var(--card);border:1px solid var(--line)}
+.view{display:none;flex:1;overflow:auto;padding:0 26px 26px}
+.view.on{display:block;animation:in .35s ease}
+@keyframes in{from{opacity:0;transform:translateY(8px)}}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:14px;transition:.3s;animation:in .4s ease both}
+.card:hover{transform:translateY(-3px);border-color:#4c3a86}
+.thumb{height:120px;border-radius:14px;margin-bottom:12px;display:grid;place-items:center;font-size:34px;background:linear-gradient(135deg,#2b1f4d,#15112300),#1f1838}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.card h3{font-size:15px}.card small{color:var(--mut)}
+.pill{width:46px;height:26px;border-radius:999px;background:#2c2644;position:relative;transition:.3s;flex:none}
+.pill::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#8c85a6;transition:.3s cubic-bezier(.3,1.5,.5,1)}
+.pill.on{background:var(--pu)}.pill.on::after{left:23px;background:#fff}
+.drop{position:fixed;inset:0;background:rgba(11,9,18,.85);backdrop-filter:blur(8px);display:none;place-items:center;font-size:22px;z-index:9}
+.drop.on{display:grid}.drop div{border:2px dashed var(--pu);padding:60px 90px;border-radius:30px;animation:in .25s}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;place-items:center;z-index:10}
+.modal.on{display:grid}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:26px;padding:24px;width:min(460px,92vw);max-height:80vh;display:flex;flex-direction:column;gap:14px;animation:in .3s}
+.list{overflow:auto;display:flex;flex-direction:column;gap:6px}
+.item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:var(--card);cursor:pointer;transition:.2s}
+.item:hover{background:#221c36}
+.chk{width:20px;height:20px;border-radius:7px;border:2px solid #4a4268;display:grid;place-items:center;transition:.2s;font-size:12px}
+.item.on .chk{background:var(--pu);border-color:var(--pu)}
+.empty{color:var(--mut);padding:40px;text-align:center}
+.bar{display:flex;gap:8px;margin-bottom:14px}
+.bar input{flex:1;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:10px 16px;color:var(--tx);outline:0;font:inherit}
+.frame{height:calc(100% - 52px);border-radius:22px;border:1px dashed var(--line);display:grid;place-items:center;color:var(--mut);text-align:center;padding:20px}
+body{background:radial-gradient(60% 55% at 0% 45%,rgba(239,68,68,.30),transparent 70%),radial-gradient(60% 55% at 100% 55%,rgba(59,130,246,.32),transparent 70%),#07060c;background-attachment:fixed}
+aside,header{background:rgba(255,255,255,.04);backdrop-filter:blur(26px) saturate(1.4);border-color:rgba(255,255,255,.1)}
+header{border-bottom:1px solid rgba(255,255,255,.08);padding:16px 26px;margin-bottom:18px}
+.card,.game,.box{background:rgba(255,255,255,.05);backdrop-filter:blur(22px) saturate(1.3);border:1px solid rgba(255,255,255,.12)}
+.card:hover{border-color:rgba(255,255,255,.3);box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.thumb{background:linear-gradient(90deg,rgba(239,68,68,.22),rgba(59,130,246,.22))}
+.btn{background:linear-gradient(90deg,rgba(239,68,68,.8),rgba(59,130,246,.8));border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(12px);color:#fff}
+.btn:hover{background:linear-gradient(90deg,rgba(248,90,90,.95),rgba(80,150,255,.95));box-shadow:0 8px 28px rgba(139,92,246,.4)}
+.btn.ghost{background:linear-gradient(90deg,rgba(239,68,68,.22),rgba(59,130,246,.22));border:1px solid rgba(255,255,255,.14)}
+.pill.on{background:linear-gradient(90deg,#ef4444,#3b82f6)}
+.nav.on{background:linear-gradient(90deg,rgba(239,68,68,.25),rgba(59,130,246,.25));color:#fff}
+.bar input{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12)}
+.dd{position:relative}
+.ddMenu{position:absolute;right:0;top:calc(100% + 10px);min-width:240px;padding:8px;border-radius:22px;background:rgba(20,16,32,.55);backdrop-filter:blur(28px) saturate(1.4);border:1px solid rgba(255,255,255,.14);box-shadow:0 20px 50px rgba(0,0,0,.5);opacity:0;transform:translateY(-8px) scale(.97);pointer-events:none;transition:.25s;z-index:20}
+.dd.open .ddMenu{opacity:1;transform:none;pointer-events:auto}
+.ddi{padding:10px 14px;border-radius:14px;cursor:pointer;display:flex;gap:10px;transition:.2s}
+.ddi:hover{background:rgba(255,255,255,.08)}
+.ddi.on{background:linear-gradient(90deg,rgba(239,68,68,.3),rgba(59,130,246,.3))}
+.ddi.new{font-weight:600}
+.ddnew{display:none;gap:6px;padding:4px 0 8px}.ddnew.show{display:flex}
+.ddnew input,.gform input{flex:1;min-width:0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:8px 12px;color:var(--tx);outline:0;font:inherit}
+.gm{position:fixed;inset:0;display:grid;place-items:center;background:rgba(7,6,12,.45);backdrop-filter:blur(22px) saturate(1.3);opacity:0;pointer-events:none;transition:.3s;z-index:15}
+.gm.on{opacity:1;pointer-events:auto}
+.gbox{width:min(760px,92vw);max-height:84vh;overflow:auto;display:flex;flex-direction:column;gap:18px;padding:26px;border-radius:30px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);transform:scale(.96);transition:.3s}
+.gm.on .gbox{transform:none}
+.gform{display:none;gap:6px;margin-top:10px}.gadd.open .gform{display:flex}
+.gcard,.gadd{cursor:pointer}.gcard.cur{border-color:rgba(255,255,255,.45)}
+body{background:#07060c}
+.orb{position:fixed;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0;opacity:.5}
+.o1{width:520px;height:520px;background:#b91c1c;left:-120px;top:20%;animation:m1 24s ease-in-out infinite alternate}
+.o2{width:560px;height:560px;background:#1d4ed8;right:-140px;bottom:-10%;animation:m2 28s ease-in-out infinite alternate}
+@keyframes m1{0%{transform:translate(0,0)}50%{transform:translate(45vw,-20vh)}100%{transform:translate(20vw,30vh)}}
+@keyframes m2{0%{transform:translate(0,0)}50%{transform:translate(-45vw,15vh)}100%{transform:translate(-15vw,-35vh)}}
+aside,main{position:relative;z-index:1}
+header{position:relative;z-index:30}
+.btn{background:linear-gradient(90deg,rgba(127,29,29,.9),rgba(30,58,138,.9))}
+.btn:hover{background:linear-gradient(90deg,rgba(153,35,35,.95),rgba(37,72,170,.95));box-shadow:0 8px 28px rgba(60,40,140,.45)}
+.btn.ghost{background:linear-gradient(90deg,rgba(127,29,29,.35),rgba(30,58,138,.35))}
+.pill{background:#1d1830}.pill.on{background:linear-gradient(90deg,#991b1b,#1e40af)}
+.nav.on{background:linear-gradient(90deg,rgba(127,29,29,.4),rgba(30,58,138,.4))}
+.thumb{background:linear-gradient(90deg,rgba(127,29,29,.3),rgba(30,58,138,.3))}
+.ddi.on{background:linear-gradient(90deg,rgba(127,29,29,.5),rgba(30,58,138,.5))}
+.ddMenu{background:rgba(14,11,24,.92)}
+.orb{opacity:.2}.o1{background:#7f1d1d}.o2{background:#1e3a8a}
+header{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(255,255,255,.03)}
+.btn{background:linear-gradient(90deg,rgba(80,20,24,.9),rgba(22,34,80,.9));border:1px solid rgba(255,255,255,.1)}
+.btn:hover{background:linear-gradient(90deg,rgba(98,25,30,.95),rgba(28,44,100,.95));box-shadow:none}
+.btn.ghost{background:linear-gradient(90deg,rgba(80,20,24,.4),rgba(22,34,80,.4))}
+.pill.on{background:linear-gradient(90deg,#5a1a1e,#1e2f6b)}
+.nav.on{background:linear-gradient(90deg,rgba(80,20,24,.45),rgba(22,34,80,.45))}
+.thumb{background:linear-gradient(90deg,rgba(80,20,24,.3),rgba(22,34,80,.3))}
+.ddi.on{background:linear-gradient(90deg,rgba(80,20,24,.5),rgba(22,34,80,.5))}
+.ddMenu{background:rgba(30,24,48,.38);backdrop-filter:blur(28px) saturate(1.4);-webkit-backdrop-filter:blur(28px) saturate(1.4)}
+.view{padding-top:4px}
+#grid,#gGrid{grid-template-columns:repeat(auto-fill,minmax(190px,210px));justify-content:start}
+.mod,.gcard{aspect-ratio:1/1;display:flex;flex-direction:column}
+.mod .thumb,.gcard .thumb{flex:1;height:auto}
+.card,.card:hover{cursor:default;transform:none;box-shadow:none;border-color:rgba(255,255,255,.12)}
+.mod .thumb{opacity:.4;transition:.3s}.mod.on .thumb{opacity:1}
+.mod,.mod *{user-select:none}
+.mod .row{flex-wrap:wrap;gap:8px}.mod .row>div:first-child{flex:1 1 100%;min-width:0}
+.mod h3{font-size:14px;overflow-wrap:anywhere;line-height:1.25}
+.mod .pill{margin-left:auto}.mod .thumb{min-height:56px}
+
+.brand{font-size:22px;font-weight:800;letter-spacing:.5px;padding:2px 12px 14px}
+.brand span{background:linear-gradient(90deg,#c0393f,#4a6fd8);-webkit-background-clip:text;background-clip:text;color:transparent}
+.empty{grid-column:1/-1}
+.nogame #dd,.nogame #addBtn,.nogame #playBtn,.nogame #openMods,.nogame #openGame,.nogame #profiles .bar{display:none}
+.toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);background:rgba(30,24,48,.95);border:1px solid rgba(255,255,255,.15);padding:11px 20px;border-radius:999px;opacity:0;pointer-events:none;transition:.3s;z-index:40}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.card{position:relative}
+.rm{position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.5);display:grid;place-items:center;font-size:12px;opacity:0;transition:.2s;z-index:2}
+.card:hover .rm{opacity:1}.rm:hover{background:rgba(190,40,55,.85)}
+.gcard small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* thicker button borders */
+.btn,.btn.ghost{border:2px solid rgba(255,255,255,.22)}
+.btn:hover{border-color:rgba(255,255,255,.4)}
+.btn.sm{padding:7px 14px}
+/* downloads */
+.chkrow{display:flex;align-items:center;gap:8px;color:var(--mut);margin:0 0 14px 4px;cursor:pointer;user-select:none}
+.chkrow input{accent-color:#8b2a30;width:16px;height:16px}
+.dllist{display:flex;flex-direction:column;gap:10px}
+.dl{display:flex;align-items:center;gap:14px;padding:12px 16px;border-radius:18px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12)}
+.dl .info{flex:1;min-width:0}
+.dl .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl small{color:var(--mut)}
+.prog{height:6px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:6px}
+.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,#991b1b,#1e40af);transition:width .25s}
+.dl.done .prog{display:none}
+.dl .acts{display:flex;gap:8px;flex:none}
+.bar .lead{flex:1;color:var(--mut);align-self:center}
+/* browser shortcuts */
+#siteGrid{grid-template-columns:repeat(auto-fill,minmax(150px,170px));justify-content:start}
+.card.site{aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center}
+.card.site,.card.site:hover{cursor:pointer}
+.card.site:hover{border-color:rgba(255,255,255,.35);background:rgba(255,255,255,.09)}
+.card.site small,.card.site h3{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ico{width:64px;height:64px;border-radius:20px;overflow:hidden;display:grid;place-items:center;font-size:24px;font-weight:800;margin-bottom:6px;background:linear-gradient(135deg,rgba(110,25,30,.8),rgba(25,40,100,.8));border:1px solid rgba(255,255,255,.18)}
+.ico.has{background:rgba(255,255,255,.94);border-color:rgba(255,255,255,.35);padding:8px}
+.ico img{width:100%;height:100%;object-fit:contain;display:block}
+.box input{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:10px 16px;color:var(--tx);outline:0;font:inherit}
+/* downloads filter + game tag, browser warning */
+#dlMenu{max-height:min(55vh,360px);overflow-y:auto}#dlLabel{display:inline-block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+.ddi.nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl .meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tag{font-size:11px;padding:2px 9px;border-radius:999px;border:1px solid rgba(255,255,255,.18);background:linear-gradient(90deg,rgba(80,20,24,.45),rgba(22,34,80,.45));color:var(--tx);white-space:nowrap}
+.box p{color:var(--mut);line-height:1.5}.box p b{color:var(--tx)}
+
+/* ===== no text selection, no scrollbars (scrolling still works: wheel, or hold left click and drag) ===== */
+*{-webkit-user-select:none;user-select:none;-webkit-user-drag:none;scrollbar-width:none}
+input,textarea{-webkit-user-select:text;user-select:text}
+::-webkit-scrollbar{display:none;width:0;height:0}
+body.dragging,body.dragging *{cursor:grabbing!important}
+/* ===== gradients must cover the border area too, otherwise the tile repeats under the border (blue edge on the left, red edge on the right) ===== */
+.btn,.btn:hover,.btn.ghost,.btn.ghost:hover,.btn.danger,.tag,.ico,.ico.has,.thumb,.nav,.nav.on,.ddi,.ddi.on,.card,.game,.pill,.pill.on,.prog i{background-origin:border-box!important;background-repeat:no-repeat!important}
+.btn.danger,.btn.danger:hover{background-image:linear-gradient(90deg,rgba(150,30,40,.95),rgba(100,24,70,.95))}
+.nav.bottom{margin-top:auto}
+/* ===== switch-game window: header stays, only the games scroll (no scrollbar, so nothing shifts) ===== */
+.gbox{display:flex;flex-direction:column;overflow:hidden;max-height:84vh}
+.gbox>.row{flex:none}
+#gGrid{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;padding:3px;margin:-3px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));justify-content:stretch;align-content:start}
+.gcard .thumb{position:relative;overflow:hidden}
+.gcard .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block;opacity:0;transition:opacity .4s}
+.gcard .thumb img.ok{opacity:1}
+.gcard h3{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ===== right-click menu + dialogs ===== */
+.ctx{position:fixed;z-index:60;min-width:210px;padding:6px;border-radius:18px;background:rgba(24,19,38,.94);backdrop-filter:blur(24px) saturate(1.4);border:1px solid rgba(255,255,255,.14);box-shadow:0 18px 44px rgba(0,0,0,.55);display:none;animation:in .15s ease}
+.ctx.on{display:block}
+.ctx button{display:flex;width:100%;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;text-align:left}
+.ctx button:hover{background:rgba(255,255,255,.09)}
+.ctx hr{border:0;height:1px;background:rgba(255,255,255,.1);margin:5px 6px}
+.ctx .danger{color:#ff8b95}.ctx .danger:hover{background:rgba(190,40,55,.3)}
+.modal.top{z-index:50}
+.box h2{font-size:18px}
+/* ===== "don't show again" with a countdown ===== */
+.skip{display:flex;align-items:center;gap:8px;color:var(--mut);cursor:pointer}
+.skip.wait{opacity:.55;cursor:default}
+.skip input{accent-color:#8b2a30;width:16px;height:16px;flex:none}
+/* ===== settings ===== */
+.set{display:flex;flex-direction:column;gap:16px;max-width:640px;padding-bottom:10px}
+.scard{padding:20px;border-radius:22px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;gap:12px}
+.scard h3{font-size:15px}
+.scard p{color:var(--mut);line-height:1.5}
+.scard a{color:#9db4ff}
+.scard .line{display:flex;gap:8px;align-items:center}
+.scard .line small{color:var(--mut)}
+.scard input:not([type=checkbox]){flex:1;min-width:0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:10px 16px;color:var(--tx);outline:0;font:inherit}
+body.v-settings header>:not(h1){display:none!important}
+</style></head><body>
+<div class="orb o1"></div><div class="orb o2"></div>
+<aside>
+  <div class="brand">MOD<span>it</span></div>
+  <button class="game" id="gameBtn"><div class="dot" id="gDot">＋</div><div><b id="gName">No game selected</b><small id="gSub">Add a game to start</small></div></button>
+  <button class="nav on" data-v="mods">Mods</button>
+  <button class="nav" data-v="profiles">Profiles</button>
+  <button class="nav" data-v="browser">Browser</button>
+  <button class="nav" data-v="downloads">Downloads</button>
+  <button class="nav bottom" data-v="settings">Settings</button>
+</aside>
+<main>
+  <header><h1 id="title">Mods</h1>
+    <div class="dd" id="dd"><button class="btn" id="ddBtn"><span id="ddLabel"></span> ▾</button><div class="ddMenu" id="ddMenu"></div></div>
+    <button class="btn ghost" id="openMods" title="Open the folder mods are installed to">Mods folder</button><button class="btn ghost" id="openGame" title="Open the game's install folder">Game folder</button><button class="btn" id="addBtn">Add mod</button><button class="btn" id="playBtn" title="Start the game (right-click to choose a different program)">&#9654; Play</button><input type="file" id="mFile" multiple hidden></header>
+  <section class="view scroll on" id="mods"><div class="grid" id="grid"></div></section>
+  <section class="view scroll" id="profiles"><div class="bar"><input id="newProf" placeholder="New profile name"><button class="btn" id="mkProf">Create</button></div><div class="grid" id="profGrid"></div></section>
+  <section class="view scroll" id="downloads"><div class="bar"><span class="lead">Everything you download in the Browser tab is saved here.</span><div class="dd" id="dlDd"><button class="btn ghost" id="dlBtn" title="Show downloads for one game"><span id="dlLabel"></span> ▾</button><div class="ddMenu" id="dlMenu"></div></div><button class="btn ghost" id="dlDir">Open folder</button></div>
+    <label class="chkrow"><input type="checkbox" id="autoInst" checked> Install automatically when a download finishes</label>
+    <div class="dllist" id="dlList"></div></section>
+  <section class="view scroll" id="browser"><div class="bar"><input id="url" placeholder="Type or paste a web address"><button class="btn" id="go">Go</button></div>
+    <div class="grid" id="siteGrid"></div></section>
+  <section class="view scroll" id="settings"><div class="set">
+    <div class="scard"><h3>Game covers</h3>
+      <p>MODit downloads cover art from <a href="https://www.steamgriddb.com/profile/preferences/api" target="_blank">SteamGridDB</a> a few seconds after you add a game, while you are online. It needs a free API key: sign in on SteamGridDB, open Preferences &gt; API and paste the key here.</p>
+      <div class="line"><input id="sgKey" type="password" placeholder="SteamGridDB API key" spellcheck="false" autocomplete="off"><button class="btn" id="sgSave">Save</button></div>
+      <div class="line"><button class="btn ghost" id="sgFetch">Find missing covers now</button><small id="sgStatus"></small></div></div>
+    <div class="scard"><h3>Browser</h3>
+      <label class="skip"><input type="checkbox" id="setWarn"> Show the "Before you browse" notice when opening the Browser</label></div>
+    <div class="scard"><h3>Library</h3><p id="libInfo"></p>
+      <div class="line"><button class="btn ghost" id="openData">Open data folder</button></div></div>
+  </div></section>
+</main>
+<div class="gm" id="gm"><div class="gbox"><div class="row"><h2>Switch game</h2><button class="btn" id="gAddBtn">Add Game ＋</button><input type="file" id="gDir" webkitdirectory hidden></div><div class="grid scroll" id="gGrid"></div></div></div>
+<div class="drop" id="drop"><div>Drop a mod archive</div></div>
+<div class="modal" id="modal"><div class="box"><h2 id="mTitle">Choose mods to install</h2><div class="list scroll" id="mList"></div>
+  <div class="row"><button class="btn ghost" id="mAll">Select all</button><div><button class="btn ghost" id="mCancel">Cancel</button> <button class="btn" id="mOk">Install</button></div></div></div></div>
+<div class="modal" id="siteModal"><div class="box"><h2>Add a site</h2><input id="sName" placeholder="Name (optional)"><input id="sUrl" placeholder="https://example.com"><div class="row"><span></span><div><button class="btn ghost" id="sCancel">Cancel</button> <button class="btn" id="sOk">Add</button></div></div></div></div>
+<div class="modal" id="warn"><div class="box"><h2>Before you browse</h2>
+  <p id="warnTxt"></p>
+  <p>Only download mods that are made for that game. A mod made for a different game (say a Balatro mod while Tekken 8 is selected) can break the install.</p>
+  <div class="row"><label class="skip wait" id="warnSkipLbl"><input type="checkbox" id="warnSkip" disabled><span id="warnSkipTxt"></span></label><div><button class="btn ghost" id="warnNo">Cancel</button> <button class="btn" id="warnOk">Continue</button></div></div></div></div>
+<div class="modal top" id="ask"><div class="box"><h2 id="askT"></h2><p id="askM"></p><div class="row"><span></span><div><button class="btn ghost" id="askNo">Cancel</button> <button class="btn danger" id="askOk">OK</button></div></div></div></div>
+<div class="modal top" id="prm"><div class="box"><h2 id="prmT"></h2><input id="prmIn" spellcheck="false" autocomplete="off"><div class="row"><span></span><div><button class="btn ghost" id="prmNo">Cancel</button> <button class="btn" id="prmOk">OK</button></div></div></div></div>
+<div class="ctx" id="ctx"></div>
+<div class="toast" id="toast"></div>
+<script>
+// ---- bridge: real Electron (window.api from preload.ts) or browser preview ----
+const A=window.api;
+const T=A?{core:{invoke:(c,a)=>A.invoke(c,a)},dialog:{open:o=>A.openDialog(o),ask:m=>A.ask(m)}}:null;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const base=p=>String(p).split(/[\\/]/).filter(Boolean).pop()||'';
+const initials=n=>n.split(/\s+/).filter(Boolean).map(w=>w[0]).join('').slice(0,3).toUpperCase()||'?';
+const LOOSE=/\.(pak|ucas|utoc|tkmod)$/i;
+
+// State starts empty: no game, no mods. Everything lives per game:
+// S.data[gameId] = {mods:[], profiles:{Default:{modId:true}}, active:'Default'}
+const DEFAULT_SITES=[{n:'Nexus Mods',u:'https://www.nexusmods.com'},{n:'TekkenMods',u:'https://tekkenmods.com'},{n:'GameBanana',u:'https://gamebanana.com'}];
+const blank=()=>({v:2,game:null,games:[],data:{},sites:DEFAULT_SITES.map(x=>({...x})),settings:{sgdbKey:'',skipBrowserWarn:false}});
+let S=blank();
+const game=()=>S.games.find(g=>g.id===S.game)||null;
+const cur=()=>S.data[S.game]||null;
+const modsDir=()=>(game()||{}).modsDir||'';
+const modFolder=()=>{const g=game();return g&&g.modFolder!=null?g.modFolder:'~mods'};
+const inv=T?(c,a={})=>T.core.invoke(c,{game:S.game,modsDir:modsDir(),modFolder:modFolder(),...a}):null;
+// Games, mods and settings live in a SQLite database (main process). Only what changed is written:
+// the mods/profiles of ONE game, plus the active game and the saved sites.
+const save=(gid=S.game)=>{if(!inv)return;
+  const d=gid&&S.data[gid];
+  if(d)inv('save_data',{id:gid,data:d}).catch(e=>failToast(e));
+  inv('save_meta',{sites:S.sites}).catch(()=>{})};
+
+// installs and syncs run one at a time so they never trip over each other
+let q=Promise.resolve();
+const enqueue=f=>{q=q.then(f).catch(e=>{console.error(e);toast('Something went wrong: '+(e&&e.message||e))});return q};
+let tt;function toast(m,ms=2800){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),ms)}
+
+// Make the game's mods folder match the active profile (enabled = copied in, disabled = removed)
+function sync(){
+  if(!inv||!game())return;
+  const gid=S.game,md=modsDir();
+  enqueue(()=>{const d=S.data[gid];return d&&inv('sync_profile',{game:gid,modsDir:md,profile:d.active,state:d})});
+}
+
+// ---- render ----
+function render(){
+  const g=game(),d=cur();
+  if(inv)inv('set_active_game',{game:g?g.id:'',gameName:g?g.name:''}).catch(()=>{});
+  document.body.classList.toggle('nogame',!g);
+  $('#gName').textContent=g?g.name:'No game selected';
+  $('#gSub').textContent=g?'Switch game':'Add a game to start';
+  $('#gDot').textContent=g?initials(g.name):'＋';
+  if(!g||!d){
+    $('#grid').innerHTML='<div class="empty">Add a game to get started<br><br><button class="btn" id="emptyAdd">Add game</button></div>';
+    $('#profGrid').innerHTML='<div class="empty">Add a game first, then create profiles</div>';
+    $('#ddMenu').innerHTML='';$('#ddLabel').textContent='';return}
+  $('#ddLabel').textContent=d.active;
+  $('#ddMenu').innerHTML=`<div class="ddi new" id="ddNew"><span>＋</span><span>New profile</span></div><div class="ddnew" id="ddForm"><input id="ddIn" placeholder="Profile name"><button class="btn" id="ddMk">Add</button></div>`+Object.keys(d.profiles).map(p=>`<div class="ddi ${p==d.active?'on':''}" data-pf="${esc(p)}">${esc(p)}</div>`).join('');
+  const en=d.profiles[d.active]||{};
+  $('#grid').innerHTML=d.mods.length?d.mods.map((m,i)=>`<div class="card mod ${en[m.id]?'on':''}" data-id="${esc(m.id)}" style="animation-delay:${i*50}ms">
+   <button class="rm" data-rm="${esc(m.id)}" title="Remove mod">✕</button><div class="thumb">${m.emoji||'📦'}</div><div class="row"><div><h3>${esc(m.name)}</h3><small>${esc(m.root||'Mods')}</small></div>
+   <div class="pill ${en[m.id]?'on':''}"></div></div></div>`).join(''):'<div class="empty">No mods yet.<br>Click <b>Add mod</b> or drop an archive anywhere.</div>';
+  $('#profGrid').innerHTML=Object.keys(d.profiles).map(p=>`<div class="card"><div class="row"><div><h3>${esc(p)}</h3><small>${Object.values(d.profiles[p]).filter(Boolean).length} mods on</small></div>
+   <button class="btn ${p==d.active?'':'ghost'}" data-p="${esc(p)}" title="${p==d.active?'Turn off all mods in this profile':'Switch to this profile'}">${p==d.active?'Active':'Use'}</button></div></div>`).join('');
+}
+
+// ---- mods + profiles ----
+document.addEventListener('click',e=>{
+  const d=cur();
+  const rmb=e.target.closest('[data-rm]');if(rmb){removeMod(rmb.dataset.rm);return}
+  const cd=e.target.closest('.mod');
+  if(cd&&d){const p=d.profiles[d.active];p[cd.dataset.id]=!p[cd.dataset.id];cd.classList.toggle('on');cd.querySelector('.pill').classList.toggle('on');save();sync();render()}
+  const pb=e.target.closest('[data-p]');if(pb&&d){
+    if(pb.dataset.p===d.active){d.profiles[d.active]={};toast('All mods turned off in '+d.active)} // "Active" = switch everything off
+    else d.active=pb.dataset.p;
+    save();render();sync()}
+  const n=e.target.closest('.nav');if(n){if(n.dataset.v==='browser'){askBrowser();return}showView(n.dataset.v)}
+  if(e.target.closest('#emptyAdd'))pickGame();
+});
+document.addEventListener('click',e=>{const t=e.target,d=cur();
+ if(t.closest('#ddBtn')){$('#dd').classList.toggle('open');return}
+ if(t.closest('#ddNew')){$('#ddForm').classList.add('show');$('#ddIn').focus();return}
+ if(t.closest('#ddMk')){const v=$('#ddIn').value.trim();if(d&&v&&!d.profiles[v]){d.profiles[v]={};d.active=v;save();render();sync();$('#dd').classList.remove('open')}return}
+ const pf=t.closest('[data-pf]');if(pf&&d){d.active=pf.dataset.pf;save();render();$('#dd').classList.remove('open');sync();return}
+ if(!t.closest('#dd'))$('#dd').classList.remove('open')});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='ddIn')$('#ddMk').click()});
+$('#mkProf').onclick=()=>{const d=cur(),v=$('#newProf').value.trim();if(d&&v&&!d.profiles[v]){d.profiles[v]={};d.active=v;$('#newProf').value='';save();render();sync()}};
+
+// ---- games ----
+const coverImg=g=>g.cover?`<img alt="" draggable="false" loading="lazy" src="modit://cover/${encodeURIComponent(g.cover)}" onload="this.classList.add('ok')" onerror="this.remove()">`:'';
+const thumbHtml=g=>'<span class="ph">🎮</span>'+coverImg(g);
+function patchThumb(g){const el=document.querySelector('#gGrid .gcard[data-g="'+CSS.escape(g.id)+'"] .thumb');if(el)el.innerHTML=thumbHtml(g)}
+function drawGames(){
+ $('#gGrid').innerHTML=S.games.length?S.games.map(g=>`<div class="card gcard ${g.id==S.game?'cur':''}" data-g="${esc(g.id)}"><button class="rm" data-rg="${esc(g.id)}" title="Remove game">✕</button><div class="thumb">${thumbHtml(g)}</div><h3>${esc(g.name)}</h3><small>${g.id==S.game?'Current':'Switch'}</small></div>`).join(''):'<div class="empty">No games yet. Press Add Game.</div>'}
+$('#gameBtn').onclick=()=>{if(!S.games.length){pickGame();return}drawGames();$('#gm').classList.add('on')};
+function addGame(name,path,modsDir,modFolder){
+ const old=S.games.find(g=>modsDir&&g.modsDir&&g.modsDir.toLowerCase()===modsDir.toLowerCase());
+ if(old){selectGame(old.id);toast(old.name+' is already added');return}
+ const id='g'+Date.now().toString(36);
+ const g={id,name,path,modsDir,modFolder,exe:'',cover:null,coverCustom:false},data={mods:[],profiles:{Default:{}},active:'Default'};
+ S.games.push(g);S.data[id]=data;
+ if(inv)inv('add_game',{rec:g,data}).catch(e=>failToast(e)); // the cover is looked up in the background a few seconds later
+ selectGame(id)}
+function selectGame(id){S.game=id;dlFilter='';if(typeof fillFilter==='function'){fillFilter();drawDl(dlAll)}save();render();drawGames();$('#gm').classList.remove('on');sync()}
+// One folder is all it takes: MODit finds the game's Paks folder (and its Mods, ~mods and LogicMods) itself.
+async function pickGame(){
+ if(T&&T.dialog){
+  try{
+   const p=await T.dialog.open({directory:true,title:"Select the game's install folder"});if(!p)return;
+   const r=await inv('resolve_game',{path:String(p)});
+   if(!r){ // not in the database and not an Unreal game: let the user point at the mods folder
+    if(!await confirmBox("MODit doesn't know this game yet.\n\nChoose the folder its mods go in yourself?"))return;
+    const m=await T.dialog.open({directory:true,title:'Select the folder mods are installed to'});if(!m)return;
+    addGame(base(String(p)),String(p),String(m),'');return}
+   addGame(r.name,String(p),r.paks,r.modFolder);
+  }catch(err){toast('Could not add the game: '+(err&&err.message||err),6000)}}
+ else $('#gDir').click()}
+const confirmBox=m=>T&&T.dialog&&T.dialog.ask?T.dialog.ask(m,{title:'MODit',kind:'warning'}):Promise.resolve(confirm(m));
+async function removeMod(id){
+ const d=cur(),g=game(),m=d&&d.mods.find(x=>x.id===id);if(!m)return;
+ if(!await confirmBox(`Remove "${m.name}"? It will be taken out of the game and deleted from MODit.`))return;
+ d.mods=d.mods.filter(x=>x.id!==id);Object.values(d.profiles).forEach(p=>delete p[id]);
+ save();render();
+ if(inv)enqueue(()=>inv('remove_mod',{game:g.id,id,root:m.root,modsDir:g.modsDir}))}
+async function removeGame(id){
+ const g=S.games.find(x=>x.id===id),d=S.data[id];if(!g)return;
+ if(!await askUi({title:'Are you sure?',msg:`Remove "${g.name}" from MODit? Its mods are taken out of the game's folder and its profiles are deleted. The game itself is not touched.`,ok:'Remove',danger:true}))return;
+ if(inv&&d)await enqueue(()=>inv('remove_game',{game:id,state:d,modsDir:g.modsDir}));
+ S.games=S.games.filter(x=>x.id!==id);delete S.data[id];
+ if(S.game===id){S.game=S.games.length?S.games[0].id:null;dlFilter=''}
+ save();render();drawGames();if(!S.games.length)$('#gm').classList.remove('on')}
+$('#gDir').onchange=e=>{const f=e.target.files[0];if(f)addGame(f.webkitRelativePath.split('/')[0],'','');e.target.value=''};
+addEventListener('keydown',e=>{if(e.key==='Escape')$('#gm').classList.remove('on')});
+document.addEventListener('click',e=>{const t=e.target;
+ if(t.id==='gm'){$('#gm').classList.remove('on');return}
+ if(t.closest('#gAddBtn')){pickGame();return}
+ const rg=t.closest('[data-rg]');if(rg){removeGame(rg.dataset.rg);return}
+ const g=t.closest('[data-g]');if(g){if(g.dataset.g!==S.game)selectGame(g.dataset.g);else $('#gm').classList.remove('on')}});
+
+// ---- in-app dialogs (same look as the rest of the app) ----
+function askUi({title,msg,ok='OK',danger=false}){return new Promise(res=>{
+  $('#askT').textContent=title;$('#askM').textContent=msg;
+  const yes=$('#askOk'),no=$('#askNo'),m=$('#ask');
+  yes.textContent=ok;yes.classList.toggle('danger',danger);
+  m.classList.add('on');(danger?no:yes).focus(); // a destructive question starts on Cancel
+  const done=v=>{m.classList.remove('on');yes.onclick=no.onclick=null;document.removeEventListener('keydown',key,true);res(v)};
+  const key=e=>{if(e.key==='Escape'){e.stopPropagation();done(false)}};
+  document.addEventListener('keydown',key,true);
+  yes.onclick=()=>done(true);no.onclick=()=>done(false)})}
+function promptUi({title,value='',ok='OK'}){return new Promise(res=>{
+  $('#prmT').textContent=title;const inp=$('#prmIn'),yes=$('#prmOk'),no=$('#prmNo'),m=$('#prm');
+  inp.value=value;yes.textContent=ok;m.classList.add('on');inp.focus();inp.select();
+  const done=v=>{m.classList.remove('on');yes.onclick=no.onclick=null;document.removeEventListener('keydown',key,true);res(v)};
+  const key=e=>{if(e.key==='Escape'){e.stopPropagation();done(null)}else if(e.key==='Enter'&&e.target===inp){e.stopPropagation();done(inp.value)}};
+  document.addEventListener('keydown',key,true);
+  yes.onclick=()=>done(inp.value);no.onclick=()=>done(null)})}
+
+// ---- right-click menu on a game ----
+const ctx=$('#ctx');let ctxId=null;
+function openCtx(x,y,id){
+  const g=S.games.find(v=>v.id===id);if(!g)return;ctxId=id;
+  ctx.innerHTML=`<button data-c="cover">🖼&nbsp; Set cover image</button>${g.coverCustom?'<button data-c="resetcover">↺&nbsp; Use the online cover</button>':''}<button data-c="folder">📂&nbsp; Open folder</button><button data-c="rename">✏️&nbsp; Rename</button><hr><button class="danger" data-c="remove">🗑&nbsp; Remove</button>`;
+  ctx.classList.add('on');
+  const r=ctx.getBoundingClientRect();
+  ctx.style.left=Math.max(8,Math.min(x,innerWidth-r.width-8))+'px';
+  ctx.style.top=Math.max(8,Math.min(y,innerHeight-r.height-8))+'px'}
+const closeCtx=()=>{ctx.classList.remove('on');ctxId=null};
+document.addEventListener('contextmenu',e=>{e.preventDefault();const c=e.target.closest('#gGrid .gcard');if(c)openCtx(e.clientX,e.clientY,c.dataset.g);else closeCtx()});
+document.addEventListener('mousedown',e=>{if(!e.target.closest('#ctx'))closeCtx()},true);
+addEventListener('blur',closeCtx);addEventListener('resize',closeCtx);
+document.addEventListener('wheel',closeCtx,{passive:true});
+addEventListener('keydown',e=>{if(e.key==='Escape')closeCtx()});
+ctx.onclick=async e=>{
+  const b=e.target.closest('[data-c]');if(!b)return;
+  const g=S.games.find(v=>v.id===ctxId);closeCtx();if(!g)return;
+  switch(b.dataset.c){
+    case 'cover':return pickCover(g);
+    case 'resetcover':
+      if(!inv)return;
+      try{await inv('reset_cover',{id:g.id});g.cover=null;g.coverCustom=false;patchThumb(g);
+        toast(S.settings.sgdbKey?'Looking for an online cover...':'Cover removed. Add a SteamGridDB key in Settings to download covers.')}catch(err){failToast(err)}
+      return;
+    case 'folder':
+      if(!inv)return;if(!g.path){toast('Game folder unknown');return}
+      inv('open_folder',{path:g.path}).catch(failToast);return;
+    case 'rename':return renameGame(g);
+    case 'remove':return removeGame(g.id)}};
+async function pickCover(g){
+  if(!T){toast('Choosing a cover only works in the app');return}
+  const p=await T.dialog.open({title:'Choose a cover image for '+g.name,filters:[{name:'Images',extensions:['png','jpg','jpeg','webp','bmp']}]});
+  if(!p)return;
+  try{g.cover=await inv('set_cover',{id:g.id,path:String(p)});g.coverCustom=true;patchThumb(g)}catch(err){failToast(err)}}
+async function renameGame(g){
+  const v=await promptUi({title:'Rename game',value:g.name,ok:'Rename'});if(v===null)return;
+  const n=v.trim();if(!n||n===g.name)return;
+  try{if(inv)await inv('rename_game',{id:g.id,name:n});g.name=n;render();drawGames()}catch(err){failToast(err)}}
+
+// ---- hold left click and drag to scroll (a drag never counts as a click) ----
+(()=>{let st=null;
+  document.addEventListener('mousedown',e=>{
+    if(e.button!==0||e.target.closest('input,textarea,select'))return;
+    let el=e.target.closest('.scroll');
+    while(el&&el.scrollHeight<=el.clientHeight+1)el=el.parentElement&&el.parentElement.closest('.scroll');
+    st=el?{el,y:e.clientY,top:el.scrollTop,drag:false}:null});
+  document.addEventListener('mousemove',e=>{
+    if(!st)return;
+    if(!(e.buttons&1)){end();return}
+    const dy=e.clientY-st.y;
+    if(!st.drag){if(Math.abs(dy)<6)return;st.drag=true;document.body.classList.add('dragging')}
+    st.el.scrollTop=st.top-dy});
+  function end(){
+    if(!st)return;const was=st.drag;st=null;document.body.classList.remove('dragging');
+    if(was){const kill=ev=>{ev.stopPropagation();ev.preventDefault()};
+      document.addEventListener('click',kill,true);setTimeout(()=>document.removeEventListener('click',kill,true),0)}}
+  document.addEventListener('mouseup',end);addEventListener('blur',end)})();
+
+// ---- browser window ----
+$('#go').onclick=()=>{let u=$('#url').value.trim();if(!u)return;if(!/^https?:/.test(u))u='https://'+u;
+  if(inv)inv('open_browser',{url:u}).catch(e=>toast('Could not open the browser: '+(e&&e.message||e),6000));else window.open(u,'_blank')};
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='url')$('#go').click();if(e.key==='Enter'&&(e.target.id==='sUrl'||e.target.id==='sName'))$('#sOk').click();if(e.key==='Escape')$('#siteModal').classList.remove('on')});
+
+// ---- site shortcuts (speed dial) ----
+const host=u=>{try{return new URL(u).hostname.replace(/^www\./,'')}catch(e){return u}};
+const iconCache={};
+function putIcon(el,d){if(!el)return;el.classList.add('has');el.innerHTML='<img alt="" src="'+d+'">'}
+// real site icons: fetched (and cached on disk) by the app; the letter shows until one arrives
+function loadIcons(){document.querySelectorAll('#siteGrid .site[data-su]').forEach(t=>{
+  const u=t.dataset.su;
+  if(iconCache[u]){putIcon(t.querySelector('.ico'),iconCache[u]);return}
+  if(!inv)return;
+  inv('get_icon',{url:u}).then(d=>{if(!d)return;iconCache[u]=d;
+    putIcon(document.querySelector('#siteGrid .site[data-su="'+CSS.escape(u)+'"] .ico'),d)}).catch(()=>{})})}
+function drawSites(){
+  $('#siteGrid').innerHTML=S.sites.map((s,i)=>`<div class="card site" data-su="${esc(s.u)}" style="animation-delay:${i*40}ms"><button class="rm" data-rs="${i}" title="Remove">✕</button><div class="ico">${esc((s.n||'?').trim().charAt(0).toUpperCase())}</div><h3>${esc(s.n)}</h3><small>${esc(host(s.u))}</small></div>`).join('')
+   +`<div class="card site add" id="siteAdd"><div class="ico">＋</div><h3>Add site</h3></div>`;loadIcons()}
+function openSite(u){if(inv)inv('open_browser',{url:u}).catch(failToast);else window.open(u,'_blank')}
+$('#siteGrid').onclick=e=>{
+  const rb=e.target.closest('[data-rs]');if(rb){S.sites.splice(+rb.dataset.rs,1);save();drawSites();return}
+  if(e.target.closest('#siteAdd')){$('#sName').value='';$('#sUrl').value='';$('#siteModal').classList.add('on');$('#sUrl').focus();return}
+  const t=e.target.closest('[data-su]');if(t)openSite(t.dataset.su)};
+function addSite(){
+  let u=$('#sUrl').value.trim();const n=$('#sName').value.trim();if(!u)return;
+  if(!/^https?:\/\//i.test(u))u='https://'+u;
+  try{new URL(u)}catch(e){toast('That is not a valid address');return}
+  S.sites.push({n:n||host(u),u});save();drawSites();$('#siteModal').classList.remove('on')}
+$('#sOk').onclick=addSite;
+$('#sCancel').onclick=()=>$('#siteModal').classList.remove('on');
+
+// ---- folders ----
+const failToast=e=>toast(String(e&&e.message||e).replace(/^Error invoking remote method '[^']*': (Error: )?/,''),5000);
+$('#openMods').onclick=()=>{if(!inv)return;if(!modsDir()){toast('Mods folder unknown');return}inv('open_folder',{path:modsDir(),sub:modFolder()}).catch(failToast)};
+$('#openGame').onclick=()=>{const g=game();if(!inv||!g)return;if(!g.path){toast('Game folder unknown');return}inv('open_folder',{path:g.path}).catch(failToast)};
+
+// ---- downloads ----
+const fmt=b=>b>=1073741824?(b/1073741824).toFixed(2)+' GB':b>=1048576?(b/1048576).toFixed(1)+' MB':b>=1024?Math.round(b/1024)+' KB':b+' B';
+let dlKey='',dlData=[],dlAll=[],dlFilter=''; // '' = follow the selected game
+const dlF=()=>dlFilter||S.game||'all';
+const ST={downloading:'Downloading',done:'Ready',failed:'Failed',cancelled:'Cancelled'};
+function dlSub(d){return d.state=='downloading'?(d.total>0?fmt(d.received)+' / '+fmt(d.total):fmt(d.received)):d.state=='done'?fmt(d.total||d.received):ST[d.state]}
+function drawDl(list){
+  dlAll=list||[];
+  if($('#dlMenu').children.length!==S.games.length+2)fillFilter();
+  dlData=dlAll.filter(dlMatch);
+  const key=dlF()+'|'+dlData.map(d=>d.id+d.state).join();
+  if(key!==dlKey){dlKey=key;
+    $('#dlList').innerHTML=dlData.length?dlData.map(d=>`<div class="dl ${d.state}" data-id="${esc(d.id)}"><div class="info"><div class="nm">${esc(d.name)}</div><div class="meta"><small class="sub">${esc(dlSub(d))}</small>${dlGame(d)&&dlF()!==d.gameId?`<span class="tag">${esc(dlGame(d))}</span>`:''}</div><div class="prog"><i></i></div></div>
+      <div class="acts">${d.state=='downloading'?`<button class="btn ghost sm" data-dl="cancel">Cancel</button>`:d.state=='done'?`${/\.(zip|7z|rar|pak|ucas|utoc|tkmod)$/i.test(d.name)?'<button class="btn sm" data-dl="install">Install</button>':''}<button class="btn ghost sm" data-dl="show">Show</button><button class="btn ghost sm" data-dl="remove">✕</button>`:`<button class="btn ghost sm" data-dl="remove">✕</button>`}</div></div>`).join(''):(dlAll.length?'<div class="empty">No downloads for this game yet.</div>':'<div class="empty">Nothing downloaded yet.<br>Files you download in the Browser tab appear here.</div>')}
+  dlData.forEach(d=>{const el=$('#dlList .dl[data-id="'+CSS.escape(d.id)+'"]');if(!el)return;
+    el.querySelector('.sub').textContent=dlSub(d);
+    el.querySelector('.prog i').style.width=(d.total>0?Math.min(100,d.received/d.total*100):0)+'%'})}
+function dlGame(d){const g=S.games.find(x=>x.id===d.gameId);return g?g.name:(d.gameName||'')}
+function dlMatch(d){const f=dlF();return f==='all'||(f==='?'?(!d.gameId||!S.games.some(g=>g.id===d.gameId)):d.gameId===f)}
+function fillFilter(){
+  const opts=[['all','All games']].concat(S.games.map(g=>[g.id,g.name]),[['?','Other / unknown']]);
+  if(dlFilter&&!opts.some(o=>o[0]===dlFilter))dlFilter='';
+  const f=dlF();
+  $('#dlLabel').textContent=(opts.find(o=>o[0]===f)||opts[0])[1];
+  $('#dlMenu').innerHTML=opts.map(o=>`<div class="ddi nm ${o[0]===f?'on':''}" data-df="${esc(o[0])}">${esc(o[1])}</div>`).join('')}
+$('#dlList').onclick=async e=>{const b=e.target.closest('[data-dl]');if(!b||!inv)return;
+  const id=b.closest('.dl').dataset.id,d=dlData.find(x=>x.id===id);if(!d)return;
+  const a=b.dataset.dl;
+  if(a=='install'){
+    // a mod downloaded for another game is probably not meant for this one
+    if(d.gameId&&d.gameId!==S.game&&!await confirmBox('This was downloaded for '+(d.gameName||'another game')+', but '+(game()?game().name:'no game')+' is selected.\n\nInstall it anyway?'))return;
+    handlePaths([d.path])}
+  else inv(a=='cancel'?'cancel_download':a=='show'?'show_download':'remove_download',{dlId:id}).catch(failToast)};
+$('#dlDir').onclick=()=>{if(inv)inv('open_downloads_dir',{game:S.games.some(g=>g.id===dlF())?dlF():''}).catch(failToast)};
+$('#dlBtn').onclick=()=>$('#dlDd').classList.toggle('open');
+$('#dlMenu').onclick=e=>{const o=e.target.closest('[data-df]');if(!o)return;dlFilter=o.dataset.df;$('#dlDd').classList.remove('open');fillFilter();drawDl(dlAll)};
+document.addEventListener('click',e=>{if(!e.target.closest('#dlDd'))$('#dlDd').classList.remove('open')});
+
+// ---- switching sections ----
+function showView(v){
+  const n=document.querySelector('.nav[data-v="'+v+'"]');if(!n)return;
+  document.querySelectorAll('.nav,.view').forEach(x=>x.classList.remove('on'));
+  n.classList.add('on');$('#'+v).classList.add('on');$('#title').textContent=n.textContent;
+  document.body.classList.toggle('v-settings',v==='settings');
+  if(v==='settings')drawSettings();
+  if(v==='downloads'){fillFilter();if(inv)inv('list_downloads').then(drawDl).catch(()=>{})}}
+// the Browser section always asks first: a mod for the wrong game can break an install
+function askBrowser(){
+  if($('#browser').classList.contains('on'))return;
+  if(S.settings.skipBrowserWarn){showView('browser');return}
+  const g=game();
+  $('#warnTxt').innerHTML=g?'Mods you download here are meant for <b>'+esc(g.name)+'</b>, the game that is selected right now.':'No game is selected, so downloads will not be installed automatically.';
+  openWarn()}
+// "Don't show again" can only be ticked after a short countdown, so the notice is actually seen
+let warnT=null;
+function openWarn(){
+  const chk=$('#warnSkip'),lbl=$('#warnSkipLbl'),txt=$('#warnSkipTxt');let n=3;
+  chk.checked=false;chk.disabled=true;lbl.classList.add('wait');txt.textContent="Don't show again ("+n+"s)";
+  clearInterval(warnT);
+  warnT=setInterval(()=>{n--;
+    if(n>0){txt.textContent="Don't show again ("+n+"s)";return}
+    clearInterval(warnT);warnT=null;chk.disabled=false;lbl.classList.remove('wait');txt.textContent="Don't show again"},1000);
+  $('#warn').classList.add('on')}
+function closeWarn(){clearInterval(warnT);warnT=null;$('#warn').classList.remove('on')}
+$('#warnOk').onclick=()=>{
+  const chk=$('#warnSkip');
+  if(!chk.disabled&&chk.checked){S.settings.skipBrowserWarn=true;if(inv)inv('set_setting',{key:'skipBrowserWarn',value:'1'}).catch(failToast)}
+  closeWarn();showView('browser')};
+$('#warnNo').onclick=closeWarn;
+addEventListener('keydown',e=>{if(e.key==='Escape')closeWarn()});
+
+// ---- settings ----
+function drawSettings(){
+  $('#sgKey').value=S.settings.sgdbKey||'';
+  $('#setWarn').checked=!S.settings.skipBrowserWarn;
+  const n=S.games.length,have=S.games.filter(g=>g.cover).length;
+  $('#libInfo').textContent=n+' game'+(n==1?'':'s')+' in the library'+(n?' ('+have+' with a cover)':'')+'. Everything is kept in a local database, so a big library stays fast.'}
+$('#sgSave').onclick=async()=>{
+  const v=$('#sgKey').value.trim();S.settings.sgdbKey=v;
+  if(inv){try{await inv('set_setting',{key:'sgdbKey',value:v})}catch(e){failToast(e);return}}
+  toast(v?'Saved. Covers are downloaded in the background.':'API key removed')};
+$('#sgFetch').onclick=async()=>{
+  if(!inv)return;
+  const r=await inv('fetch_covers').catch(failToast);if(!r)return;
+  $('#sgStatus').textContent=!r.hasKey?'Add an API key first.':!r.online?'You are offline. MODit will try again by itself.':r.missing?'Looking for covers for '+r.missing+' game'+(r.missing==1?'':'s')+'...':'Every game already has a cover.'};
+$('#setWarn').onchange=e=>{
+  S.settings.skipBrowserWarn=!e.target.checked;
+  if(inv)inv('set_setting',{key:'skipBrowserWarn',value:S.settings.skipBrowserWarn?'1':'0'}).catch(failToast)};
+$('#openData').onclick=()=>{if(inv)inv('open_db').catch(failToast)};
+try{$('#autoInst').checked=localStorage.getItem('autoInst')!=='0'}catch(_){}
+$('#autoInst').onchange=e=>{try{localStorage.setItem('autoInst',e.target.checked?'1':'0')}catch(_){}};
+if(A){
+  A.onDownloads(drawDl);
+  A.onToast(m=>toast(m,5000));
+  A.onCover((id,file)=>{const g=S.games.find(x=>x.id===id);if(!g)return;g.cover=file;patchThumb(g);if($('#settings').classList.contains('on'))drawSettings()});
+  A.onGoto(v=>showView(v));
+  A.onDownloaded((p,gid)=>{
+    if(!$('#autoInst').checked){toast('Downloaded '+base(p));return}
+    // never auto-install into a game other than the one the download was started for
+    if(gid&&gid!==S.game){const g=S.games.find(x=>x.id===gid);toast('Downloaded '+base(p)+(g?' for '+g.name+'. Switch to that game to install it.':'.'),6000);return}
+    handlePaths([p])});
+  inv('list_downloads').then(drawDl).catch(()=>{});
+}else drawDl([]);
+
+// ---- install flow ----
+// Adding a mod stores it in MODit's library and switches it on for the active profile,
+// which copies it into the game's mods folder.
+let pending=null,picks=new Set();
+function openPicker(zips,path){pending={zips,path};picks=new Set();drawPicker();$('#modal').classList.add('on')}
+function drawPicker(){$('#mList').innerHTML=pending.zips.map(z=>`<div class="item ${picks.has(z)?'on':''}" data-z="${esc(z)}"><div class="chk">${picks.has(z)?'✓':''}</div>${esc(z.replace(/\.zip$/i,''))}</div>`).join('')}
+$('#mList').onclick=e=>{const i=e.target.closest('.item');if(!i)return;picks.has(i.dataset.z)?picks.delete(i.dataset.z):picks.add(i.dataset.z);drawPicker()};
+$('#mAll').onclick=()=>{pending.zips.forEach(z=>picks.add(z));drawPicker()};
+$('#mCancel').onclick=()=>$('#modal').classList.remove('on');
+$('#mOk').onclick=()=>{$('#modal').classList.remove('on');if(picks.size)install('install_archive',{path:pending.path,picks:[...picks]})};
+
+function install(cmd,args){
+  const gid=S.game,md=modsDir();if(!gid)return;
+  return enqueue(async()=>{
+    const d=S.data[gid];if(!d)return;
+    let ns;
+    if(inv)ns=await inv(cmd,{...args,game:gid,modsDir:md,state:d});
+    else{ // browser preview: no files, just the list
+      const names=cmd==='install_files'?args.paths.map(p=>base(p).replace(/\.\w+$/,'')):args.picks.length?args.picks.map(z=>z.replace(/\.zip$/i,'')):[base(args.path).replace(/\.\w+$/,'')];
+      ns=d;names.forEach(n=>{ns.mods=ns.mods.filter(m=>m.id!==n);ns.mods.push({id:n,name:n,root:'Mods'})})}
+    ns.mods.forEach(m=>{if(!(m.id in ns.profiles[ns.active]))ns.profiles[ns.active][m.id]=true});
+    S.data[gid]=ns;save(gid);render();
+    if(inv)await inv('sync_profile',{game:gid,modsDir:md,profile:ns.active,state:ns});
+  });
+}
+async function handleArchive(path){
+  const name=base(path);
+  if(inv){const r=await inv('scan_archive',{path});
+    if(r.kind=='picker')openPicker(r.zips,path);else install('install_archive',{path,picks:[]})}
+  else if(/individual|trendy/i.test(name))openPicker(['Alisa','Anna','Asuka','Azucena','Jun','Kunimitsu','Leo','Lidia','Lili','Nina','Reina','Xiaoyu','Zafina'].map(n=>'Trendy_'+n+'.zip'),name);
+  else install('install_archive',{path,picks:[]})}
+function handlePaths(paths){
+  if(!game()){toast('Add a game first, then add mods');return}
+  const loose=paths.filter(p=>LOOSE.test(p));
+  if(loose.length)install('install_files',{paths:loose});
+  paths.filter(p=>!LOOSE.test(p)).forEach(p=>{
+    if(!/\.(zip|7z|rar)$/i.test(p)){toast(base(p)+' is not a mod archive');return}
+    handleArchive(p).catch(e=>toast('Could not read '+base(p)))});
+}
+$('#addBtn').onclick=async()=>{
+  if(!game()){toast('Add a game first');return}
+  if(T&&T.dialog){
+    const r=await T.dialog.open({multiple:true,title:'Select mod archives or files',filters:[{name:'Mods and archives',extensions:['zip','rar','7z','pak','ucas','utoc','tkmod']}]});
+    if(r)handlePaths([].concat(r).map(String))}
+  else $('#mFile').click()};
+$('#mFile').onchange=e=>{handlePaths([...e.target.files].map(f=>f.name));e.target.value=''};
+
+// ---- drag & drop ----
+let dc=0;
+addEventListener('dragenter',e=>{e.preventDefault();dc++;$('#drop').classList.add('on')});
+addEventListener('dragleave',()=>{if(--dc<=0)$('#drop').classList.remove('on')});
+addEventListener('dragover',e=>e.preventDefault());
+addEventListener('drop',e=>{e.preventDefault();dc=0;$('#drop').classList.remove('on');
+  // real app: preload resolves real file paths; browser preview only has names
+  handlePaths([...e.dataTransfer.files].map(f=>A?A.pathFor(f):f.name))});
+
+// ---- play ----
+// Starts the game: the program you picked, or Steam for a Steam install, or the game's own .exe found in its folder (Unreal games keep it in the root).
+// If none of that works you pick the .exe once (right-click Play to pick another).
+async function play(pick){
+  const g=game();if(!g)return;
+  if(!inv){toast('Play only works in the app');return}
+  try{
+    if(!pick){
+      const r=await inv('play_game',{path:g.path||'',exe:g.exe||'',name:g.name});
+      if(r&&r.ok){toast('Starting '+g.name+(r.how==='steam'?' through Steam':'')+'...');return}}
+    const p=await T.dialog.open({title:'Select the program (.exe) that starts '+g.name,defaultPath:g.path||undefined,filters:[{name:'Programs',extensions:['exe']}]});
+    if(!p)return;
+    g.exe=String(p);inv('set_game_exe',{id:g.id,exe:g.exe}).catch(failToast);
+    const r=await inv('play_game',{path:g.path||'',exe:g.exe,name:g.name});
+    toast(r&&r.ok?'Starting '+g.name+'...':'Could not start '+g.name)
+  }catch(e){failToast(e)}}
+$('#playBtn').onclick=()=>play(false);
+$('#playBtn').oncontextmenu=e=>{e.preventDefault();play(true)};
+
+// ---- start ----
+if(inv)inv('load_state').then(s=>{if(s&&s.v===2)S=s;if(!Array.isArray(S.sites))S.sites=DEFAULT_SITES.map(x=>({...x}));if(!S.settings)S.settings={sgdbKey:'',skipBrowserWarn:false};drawSites();render()});
+drawSites();render();
+</script></body></html>

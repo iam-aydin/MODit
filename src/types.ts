@@ -3,6 +3,8 @@ export interface Mod {
   name: string;
   root: string; // subfolder of the game's mods dir this mod goes in ("" = directly in it)
   emoji?: string;
+  kind?: 'overlay'; // copied into the game's own folders (backups + restore), see overlay.ts
+  order?: string[]; // overlay mods: folder names that must be listed in the game's mod_order.txt
 }
 
 export interface GameData {
@@ -46,6 +48,12 @@ export interface GameDef {
   detect: string[];    // paths (relative to the install folder) that must all exist
   modsPath: string;    // folder mods live under, relative to the install folder
   modFolder: string;   // subfolder inside modsPath ("~mods", "Mods", or "" for none)
+  folderNames?: string[]; // the game also matches when its install folder has one of these names
+  install?: 'folder' | 'overlay' | 'folders'; // folder (default): one subfolder per mod inside modsPath
+                                              // overlay: mod files are copied into the game folder (modsPath)
+                                              // folders: mod folders (with a mod.manifest) go into modsPath
+  overlayRoots?: string[]; // overlay: top-level folders a mod archive contains ("Runtime", "data")
+  manifest?: string;       // folders: file that marks a mod folder (default mod.manifest)
 }
 
 export interface CommandArgs {
@@ -69,4 +77,6 @@ export interface CommandArgs {
   key?: string;
   value?: string;
   sites?: unknown;
+  file?: string;
+  kind?: string;
 }

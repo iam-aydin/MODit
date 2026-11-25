@@ -25,7 +25,7 @@ const notify = (id: string, cover: string | null) => getWin()?.webContents.send(
 // ---------- modit:// protocol ----------
 /** Must run before the app is ready. */
 export const registerCoverScheme = () =>
-  protocol.registerSchemesAsPrivileged([{ scheme: 'modit', privileges: { standard: true, secure: true, supportFetch: true } }]);
+  protocol.registerSchemesAsPrivileged([{ scheme: 'modit', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
 /** Serves files of the covers folder only (modit://cover/<file name>). */
 export function registerCoverProtocol(): void {

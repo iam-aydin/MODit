@@ -126,13 +126,15 @@ export const getGame = (id: string): (Game & { coverTried: number }) | null => {
   return r ? { ...toGame(r), coverTried: r.tried } : null;
 };
 
-export interface GamePatch { name?: string; exe?: string; cover?: string | null; coverCustom?: boolean; coverTried?: number }
+export interface GamePatch { name?: string; exe?: string; modsDir?: string; modFolder?: string; cover?: string | null; coverCustom?: boolean; coverTried?: number }
 
 export function updateGame(id: string, p: GamePatch): void {
   const sets: string[] = [];
   const v: Record<string, unknown> = { id };
   if (p.name !== undefined) { sets.push('name = @name'); v.name = p.name; }
   if (p.exe !== undefined) { sets.push('exe = @exe'); v.exe = p.exe; }
+  if (p.modsDir !== undefined) { sets.push('mods_dir = @md'); v.md = p.modsDir; }
+  if (p.modFolder !== undefined) { sets.push('mod_folder = @mf'); v.mf = p.modFolder; }
   if (p.cover !== undefined) { sets.push('cover = @cover'); v.cover = p.cover; }
   if (p.coverCustom !== undefined) { sets.push('cover_custom = @cc'); v.cc = p.coverCustom ? 1 : 0; }
   if (p.coverTried !== undefined) { sets.push('cover_tried = @ct'); v.ct = p.coverTried; }
