@@ -1,10 +1,56 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>New tab</title>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:">
 <style>
 html,body{height:100%;margin:0;user-select:none}
-body{background:#0b0912;color:#8c85a6;font:15px system-ui,'Segoe UI',sans-serif;display:grid;place-items:center;text-align:center}
+body{background:#0b0912;color:#8c85a6;font:15px system-ui,'Segoe UI',sans-serif;display:flex;overflow:auto}
+main{margin:auto;box-sizing:border-box;width:100%;padding:40px 32px;display:flex;flex-direction:column;align-items:center;text-align:center}
 h1{margin:0 0 8px;font-size:30px;color:#ece9f7;letter-spacing:.5px}
 h1 span{background:linear-gradient(90deg,#c0393f,#4a6fd8);-webkit-background-clip:text;background-clip:text;color:transparent}
 p{margin:4px 0}
-</style></head><body><div><h1>MOD<span>it</span> Browser</h1><p>Type an address or a search above.</p><p>Middle-click or right-click a link to open it in a new tab.</p></div></body></html>
+.sub{margin-bottom:34px}
+.hint{margin-top:30px;font-size:13px;opacity:.75}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:16px;width:100%;max-width:960px}
+.card{position:relative;box-sizing:border-box;padding:20px 14px 16px;border-radius:16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;
+  background:var(--t-card,rgba(255,255,255,.04));border:1px solid var(--t-line,rgba(255,255,255,.09));transition:border-color .15s,background .15s,transform .15s}
+.card:hover{border-color:var(--t-a,#6d7be0);background:var(--t-hover,rgba(255,255,255,.08));transform:translateY(-2px)}
+.ico{width:48px;height:48px;border-radius:13px;margin-bottom:6px;display:grid;place-items:center;font-size:21px;font-weight:700;color:var(--tx,#ece9f7);
+  background:var(--t-thumb,#1a1626);border:1px solid var(--t-line2,rgba(255,255,255,.14));overflow:hidden}
+.ico.has{background:#fff}
+.ico img{width:100%;height:100%;object-fit:contain}
+h3{margin:0;font-size:15px;color:var(--tx,#ece9f7);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+small{font-size:12px;color:var(--mut,#8c85a6);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.add{border-style:dashed;justify-content:center}
+.add .ico{background:none;font-size:26px;font-weight:400}
+.rm{position:absolute;top:7px;right:7px;width:24px;height:24px;border:0;border-radius:50%;padding:0;cursor:pointer;font-size:12px;line-height:24px;
+  background:rgba(0,0,0,.55);color:#fff;opacity:0;transition:opacity .12s}
+.card:hover .rm{opacity:1}
+.rm:hover{background:#c0393f}
+#dlg{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.55)}
+#dlg.on{display:grid}
+#box{width:340px;max-width:90vw;box-sizing:border-box;padding:22px;border-radius:16px;text-align:left;
+  background:var(--t-menu,#14111f);border:1px solid var(--t-line2,rgba(255,255,255,.14))}
+#box h2{margin:0 0 14px;font-size:17px;color:var(--tx,#ece9f7)}
+#box label{display:block;margin:10px 0 4px;font-size:12px}
+#box input{width:100%;box-sizing:border-box;padding:9px 11px;border-radius:10px;font:inherit;color:var(--tx,#ece9f7);user-select:text;
+  background:var(--t-thumb,#0b0912);border:1px solid var(--t-line2,rgba(255,255,255,.14));outline:none}
+#box input:focus{border-color:var(--t-a,#6d7be0)}
+#dErr{min-height:18px;margin-top:8px;font-size:12px;color:#ff7b82}
+.row{display:flex;gap:10px;justify-content:flex-end;margin-top:6px}
+.row button{padding:8px 16px;border-radius:10px;font:inherit;cursor:pointer;border:1px solid var(--t-line2,rgba(255,255,255,.14));background:none;color:var(--tx,#ece9f7)}
+.row #dOk{background:var(--t-a,#4a6fd8);border-color:var(--t-a,#4a6fd8);color:var(--t-on-a,#fff)}
+</style></head><body>
+<main>
+  <h1>MOD<span>it</span> Browser</h1>
+  <p class="sub">Pick a site, or type an address or a search above.</p>
+  <div id="grid"></div>
+  <p class="hint">Middle-click a card (or right-click a link) to open it in a new tab.</p>
+</main>
+<div id="dlg"><div id="box">
+  <h2>Add site</h2>
+  <label for="dName">Name (optional)</label><input id="dName" maxlength="60" autocomplete="off">
+  <label for="dUrl">Address</label><input id="dUrl" placeholder="example.com" autocomplete="off">
+  <div id="dErr"></div>
+  <div class="row"><button id="dCancel">Cancel</button><button id="dOk">Add</button></div>
+</div></div>
+</body></html>

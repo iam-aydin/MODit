@@ -74,7 +74,7 @@ export const setSetting = (key: string, value: string): void => {
 };
 
 export function getSettings(): Settings {
-  return { sgdbKey: getSetting('sgdbKey') || '', skipBrowserWarn: getSetting('skipBrowserWarn') === '1', theme: getSetting('theme') || 'glass' };
+  return { sgdbKey: getSetting('sgdbKey') || '', skipBrowserWarn: getSetting('skipBrowserWarn') === '1', theme: getSetting('theme') || 'glass', glass: getSetting('glass') === '1' };
 }
 
 // ---------- games ----------

@@ -45,6 +45,7 @@ export interface Settings {
   sgdbKey: string;          // SteamGridDB API key (covers are only downloaded when there is one)
   skipBrowserWarn: boolean; // "Don't show again" on the Before you browse warning
   theme: string;            // colour theme id (themes.ts): glass, mint-gum, forest
+  glass?: boolean;          // liquid-glass look for all buttons (Settings > Appearance)
 }
 
 /** Something a game needs before mods can be installed (e.g. the AutoLink tool for Dead or Alive 5). */

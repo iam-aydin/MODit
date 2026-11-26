@@ -27,6 +27,10 @@ contextBridge.exposeInMainWorld('api', {
   onToast: (cb: (msg: string) => void) => {
     ipcRenderer.on('toast', (_e, m: string) => cb(m));
   },
+  // the saved sites were changed from the browser's new-tab page
+  onSites: (cb: (sites: Array<{ n: string; u: string }>) => void) => {
+    ipcRenderer.on('sites', (_e, l: Array<{ n: string; u: string }>) => cb(l));
+  },
   // real file paths for drag & drop
   pathFor: (file: File) => webUtils.getPathForFile(file),
 });

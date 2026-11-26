@@ -1,3 +1,4 @@
+import { glassLayer } from './glass';
 import type { WebContents } from 'electron';
 import { LAYERS, type Page } from './theme-css';
 
@@ -193,7 +194,8 @@ const TRANSPARENT: Page[] = ['menu', 'dlpanel', 'picker']; // pop-ups drawn over
 /** Everything to inject into one kind of page. Empty for "glass". */
 export function themeCss(page: Page, id: string): string {
   const th = byId(id);
-  return th.palette ? paletteVars(th.palette, !TRANSPARENT.includes(page)) + '\n' + LAYERS[page] : '';
+  const base = th.palette ? paletteVars(th.palette, !TRANSPARENT.includes(page)) + '\n' + LAYERS[page] : '';
+  return glassOn ? base + '\n' + glassLayer(page) : base;
 }
 
 export const themeBg = (id: string = current): string => byId(id).bg;
@@ -245,4 +247,17 @@ export function themed(wc: WebContents, page: Page, only?: (url: string) => bool
   return new Promise<void>(resolve => {
     wc.on('dom-ready', () => { e.key = null; queue(wc, e).then(resolve); }); // a (re)loaded page has lost the injected CSS
   });
+}
+
+
+// ---------- liquid glass (Settings > Appearance): extra CSS on top of any theme ----------
+let glassOn = false;
+export const glassEnabled = (): boolean => glassOn;
+/** Turn the liquid-glass buttons on or off. Every registered window follows at once. */
+export function setGlass(on: unknown): boolean {
+  const next = on === true || on === '1' || on === 1;
+  if (next === glassOn) return glassOn;
+  glassOn = next;
+  for (const [wc, e] of entries) queue(wc, e);
+  return glassOn;
 }

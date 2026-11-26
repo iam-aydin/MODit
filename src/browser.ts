@@ -1,6 +1,8 @@
 import { BrowserWindow, clipboard, ipcMain, WebContents, WebContentsView } from 'electron';
 import path from 'path';
 import { onTheme, themed, themeBg } from './themes';
+import { getIcon } from './icons';
+import { addSite, getSites, removeSite } from './sites';
 import { activeDownloads, browserSession, downloadApi, installDownload, onDownloadEvent, PARTITION, recentDownloads, refreshDownloads } from './downloads';
 
 // The MODit browser: one window with a tab strip + address bar (renderer/browser.html) on top
@@ -109,6 +111,7 @@ function activate(id: number): void {
   layout();
   push();
   const wc = wcOf(t);
+  if (wc && isNewTab(wc.getURL())) wc.send('nt:refresh'); // the saved sites may have changed while another tab was open
   if (wc && isWeb(wc.getURL())) wc.focus(); else focusAddress();
 }
 
@@ -122,7 +125,7 @@ function insertIndex(openerId?: number): number {
 }
 
 function openTab(url: string | null, o: { foreground?: boolean; opener?: number } = {}): Tab {
-  const view = new WebContentsView({ webPreferences: { partition: PARTITION, contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  const view = new WebContentsView({ webPreferences: { partition: PARTITION, preload: path.join(__dirname, 'newtab-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
   const tab: Tab = { id: nextId++, view, title: '', loading: false, favicon: '', openedBy: o.opener };
   tabs.splice(insertIndex(o.opener), 0, tab);
   themed(view.webContents, 'newtab', isNewTab);
@@ -498,6 +501,32 @@ ipcMain.on('br', (e, name: string, arg: unknown) => {
       if (dlOpen) hideDl(); else if (Date.now() - dlHiddenAt > 300) showDl();
       break;
   }
+});
+
+// ---------- the new-tab page: site cards (same saved sites as the app's Sites page) ----------
+const fromNewTab = (e: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent) =>
+  tabs.some(t => t.view.webContents === e.sender) && isNewTab(e.sender.getURL());
+const sitesChanged = (list: unknown) => { getMain()?.webContents.send('sites', list); }; // the app's Sites page redraws
+
+ipcMain.handle('nt:sites', e => (fromNewTab(e) ? getSites() : []));
+ipcMain.handle('nt:icon', (e, url: unknown) => (fromNewTab(e) && typeof url === 'string' ? getIcon(url).catch(() => null) : null));
+ipcMain.handle('nt:add', (e, name: unknown, url: unknown) => {
+  if (!fromNewTab(e)) return { ok: false, error: 'Not allowed' };
+  const r = addSite(name, url);
+  if (r.ok) sitesChanged(r.sites);
+  return r;
+});
+ipcMain.handle('nt:remove', (e, url: unknown) => {
+  if (!fromNewTab(e)) return [];
+  const list = removeSite(url);
+  sitesChanged(list);
+  return list;
+});
+ipcMain.on('nt:open', (e, url: unknown, background: unknown) => {
+  if (!fromNewTab(e) || typeof url !== 'string' || !isWeb(url)) return;
+  const from = tabs.find(t => t.view.webContents === e.sender);
+  if (background === true) openTab(url, { foreground: false, opener: from?.id });
+  else e.sender.loadURL(url).catch(() => undefined);
 });
 
 // ---------- API for main.ts ----------

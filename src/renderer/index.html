@@ -283,7 +283,8 @@ body.syncing .busy{display:flex}
   <section class="view scroll" id="backups"><div class="bar"><span class="lead">Before a mod replaces one of the game's own files, MODit saves the original here. Turning a mod off or removing it puts the originals back by itself.</span><button class="btn ghost" id="bkOpen">Open folder</button></div><div class="dllist" id="bkList"></div></section><section class="view scroll" id="settings"><div class="set">
     <div class="scard"><h3>Appearance</h3>
       <p>Pick how MODit looks. It applies to the whole app, including the Browser window, and is remembered.</p>
-      <div class="themes" id="themes"></div></div>
+      <div class="themes" id="themes"></div>
+      <label class="skip"><input type="checkbox" id="setGlass"> Liquid glass buttons (experiment): every button gets a glass look</label></div>
     <div class="scard"><h3>Game covers</h3>
       <p>MODit downloads cover art from <a href="https://www.steamgriddb.com/profile/preferences/api" target="_blank">SteamGridDB</a> a few seconds after you add a game, while you are online. It needs a free API key: sign in on SteamGridDB, open Preferences &gt; API and paste the key here.</p>
       <div class="line"><input id="sgKey" type="password" placeholder="SteamGridDB API key" spellcheck="false" autocomplete="off"><button class="btn" id="sgSave">Save</button></div>
@@ -817,6 +818,7 @@ function drawSettings(){
   drawThemes();
   $('#sgKey').value=S.settings.sgdbKey||'';
   $('#setWarn').checked=!S.settings.skipBrowserWarn;
+  $('#setGlass').checked=!!S.settings.glass;
   const n=S.games.length,have=S.games.filter(g=>g.cover).length;
   $('#libInfo').textContent=n+' game'+(n==1?'':'s')+' in the library'+(n?' ('+have+' with a cover)':'')+'. Everything is kept in a local database, so a big library stays fast.'}
 $('#sgSave').onclick=async()=>{
@@ -827,6 +829,7 @@ $('#sgFetch').onclick=async()=>{
   if(!inv)return;
   const r=await inv('fetch_covers').catch(failToast);if(!r)return;
   $('#sgStatus').textContent=!r.hasKey?'Add an API key first.':!r.online?'You are offline. MODit will try again by itself.':r.missing?'Looking for covers for '+r.missing+' game'+(r.missing==1?'':'s')+'...':'Every game already has a cover.'};
+$('#setGlass').onchange=e=>{S.settings.glass=e.target.checked;if(inv)inv('set_setting',{key:'glass',value:e.target.checked?'1':'0'}).catch(failToast)};
 $('#setWarn').onchange=e=>{
   S.settings.skipBrowserWarn=!e.target.checked;
   if(inv)inv('set_setting',{key:'skipBrowserWarn',value:S.settings.skipBrowserWarn?'1':'0'}).catch(failToast)};
@@ -836,6 +839,7 @@ $('#autoInst').onchange=e=>{try{localStorage.setItem('autoInst',e.target.checked
 if(A){
   A.onDownloads(drawDl);
   A.onToast(m=>toast(m,5000));
+  A.onSites&&A.onSites(l=>{S.sites=l;drawSites()});
   A.onCover((id,file)=>{const g=S.games.find(x=>x.id===id);if(!g)return;g.cover=file;patchThumb(g);if($('#settings').classList.contains('on'))drawSettings()});
   A.onGoto(v=>showView(v));
   A.onInstall((p,gid)=>{const g=S.games.find(x=>x.id===gid);handlePaths([p],{id:gid,name:g?g.name:''})}); // Install button in the browser's download panel: the questions appear in the browser window

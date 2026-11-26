@@ -4,7 +4,7 @@ import path from 'path';
 import { handlers, reapplyDb, refreshRemoteDb } from './core';
 import { initCovers, registerCoverProtocol, registerCoverScheme } from './covers';
 import { closeDb, getDb, getSetting } from './db';
-import { onTheme, setThemeId, themeBg, themed } from './themes';
+import { onTheme, setGlass, setThemeId, themeBg, themed } from './themes';
 import { libraryApi } from './library';
 import { closeBrowser, openBrowser, pickTarget, reloadBrowserChrome } from './browser';
 import { downloadApi, init as initDownloads } from './downloads';
@@ -112,6 +112,7 @@ else {
     registerCoverProtocol();
     try { reapplyDb(); } catch (e) { console.error('Game database:', e); } // saved copy + bundled file, instant
     try { setThemeId(getSetting('theme')); } catch (e) { console.error('Theme:', e); }
+    try { setGlass(getSetting('glass') === '1'); } catch (e) { console.error('Glass:', e); }
     createWindow();
     initDownloads(() => win);
     initCovers(() => win);

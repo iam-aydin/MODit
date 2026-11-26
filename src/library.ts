@@ -2,7 +2,7 @@ import { handlers } from './core';
 import { fetchNow, removeCoverFile, resetCover, scheduleCovers, setCustomCover } from './covers';
 import { addGame, deleteGame, getGame, loadAll, saveData, setSetting, updateGame } from './db';
 import type { CommandArgs } from './types';
-import { listThemes, setThemeId } from './themes';
+import { listThemes, setGlass, setThemeId } from './themes';
 import { app } from 'electron';
 import fs from 'fs';
 import { databaseExe, findGameExe } from './launch';
@@ -74,8 +74,9 @@ export const libraryApi: Record<string, Fn> = {
 
   set_setting: a => {
     const key = need(a.key, 'key');
-    if (key !== 'sgdbKey' && key !== 'skipBrowserWarn' && key !== 'theme') throw new Error('Unknown setting');
+    if (key !== 'sgdbKey' && key !== 'skipBrowserWarn' && key !== 'theme' && key !== 'glass') throw new Error('Unknown setting');
     if (key === 'theme') { setSetting(key, setThemeId(a.value)); return null; } // every MODit window repaints at once
+    if (key === 'glass') { const on = String(a.value) === '1' || String(a.value) === 'true'; setSetting(key, on ? '1' : '0'); setGlass(on); return null; } // every MODit window repaints at once
     setSetting(key, String(a.value ?? ''));
     if (key === 'sgdbKey') { fetchNow(); }
     return null;
