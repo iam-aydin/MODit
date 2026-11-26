@@ -71,6 +71,7 @@ export interface GameDef {
                                               // overlay: mod files are copied into the game folder (modsPath)
                                               // folders: mod folders (with a mod.manifest) go into modsPath
   overlayRoots?: string[]; // overlay: top-level folders a mod archive contains ("Runtime", "data")
+                           // any other install type: an archive holding one of them (Tekken 8: "Polaris") is copied into the game folder, the rest uses modsPath
   manifest?: string;       // folders: file that marks a mod folder (default mod.manifest)
   layout?: 'autolink';     // overlay: Dead or Alive 5 style, mods go flat into AutoLink/<CHARACTER>/
   launch?: string;         // program that starts the game, relative to the install folder (Play needs no questions)

@@ -256,6 +256,17 @@ function overlayOf(gid: string): Ov | null {
   return root ? { def, root } : null;
 }
 
+/** Games that normally use a mods folder (Tekken 8: ~mods) but whose entry lists `overlayRoots` too: a mod archive that
+ *  holds one of those folders (Polaris/...) is copied into the game folder itself, everything else keeps the mods folder. */
+function autoOf(gid: string): Ov | null {
+  const g = getGame(gid);
+  if (!g || !g.path) return null;
+  const def = matchDef(g.path);
+  if (!def || def.install === 'overlay' || def.install === 'folders' || !def.overlayRoots || !def.overlayRoots.length) return null;
+  const root = within(g.path, '');
+  return root ? { def, root } : null;
+}
+
 // ---------- requirements (things a game needs before mods can be installed) ----------
 function requirementState(gid: string): { items: Array<Requirement & { installed: boolean }> } | null {
   const g = getGame(gid);
@@ -589,6 +600,7 @@ export const handlers: Record<string, Handler> = {
     const ns = structuredClone(a.state as GameData);
     const dr = rootOf(a);
     const ov = overlayOf(gid);
+    const auto = ov ? null : autoOf(gid);
     // one mod: into the library (overlay games: only the part that goes into the game folder)
     const added: string[] = [];
     const thumbs: NonNullable<GameData['thumbs']> = {};
@@ -598,7 +610,15 @@ export const handlers: Record<string, Handler> = {
       if (ov) {
         await removeOverlayMod(gid, ov.root, id); // a reinstall first puts the old files back
         addMod(ns, await finalizeOverlay(src, gid, id, ov, { target: a.target, chars: a.chars, archive }), '');
-      } else addMod(ns, await finalize(src, gid, id, dr), a.modsDir || '');
+      } else if (auto && findHolder(src, new Set(auto.def.overlayRoots!.map(lc)))) { // e.g. Polaris/ in the archive: it goes into the game folder
+        const old = ns.mods.find(m => m.id === id);
+        if (old && !old.kind && a.modsDir) rm(target(a.modsDir, old)); // it used to sit in the mods folder
+        await removeOverlayMod(gid, auto.root, id);
+        addMod(ns, await finalizeOverlay(src, gid, id, auto, { archive }), '');
+      } else {
+        if (auto && ns.mods.find(m => m.id === id)?.kind === 'overlay') await removeOverlayMod(gid, auto.root, id); // it used to go into the game folder
+        addMod(ns, await finalize(src, gid, id, dr), a.modsDir || '');
+      }
       added.push(id);
     };
     await extract(archive, tmp);
@@ -709,14 +729,15 @@ export const handlers: Record<string, Handler> = {
     const gid = need(a.game, 'game');
     const st = a.state as GameData;
     const on = st.profiles[st.active] || {};
-    const ov = overlayOf(gid);
+    const pure = overlayOf(gid);
+    const ov = pure ?? autoOf(gid); // autoOf: mods folder game that also takes mods for the game folder (Tekken 8)
     let result: { backedUp: string[] } | null = null;
 
     if (ov) {
       if (!isDir(ov.root)) throw new Error(`Game folder not found: ${ov.root}`);
-      if (a.modsDir && !sameDir(a.modsDir, ov.root)) updateGame(gid, { modsDir: ov.root, modFolder: '' }); // games added before MODit knew them
+      if (pure && a.modsDir && !sameDir(a.modsDir, ov.root)) updateGame(gid, { modsDir: ov.root, modFolder: '' }); // games added before MODit knew them
       const mods = st.mods.filter(m => m.kind === 'overlay').map(m => ({ id: m.id, on: !!on[m.id], order: m.order }));
-      result = await syncOverlay(gid, ov.root, id => path.join(libDir(gid), safe(id)), mods);
+      if (pure || mods.length) result = await syncOverlay(gid, ov.root, id => path.join(libDir(gid), safe(id)), mods);
       if (isAutolink(ov)) ensureCharacterFolders(ov); // right after the AutoLink tool arrives: one folder per name in NAME.txt
       if (!a.modsDir || sameDir(a.modsDir, ov.root) || !st.mods.some(m => !m.kind)) return result; // old-style mods have nowhere safe to go
     }
@@ -740,7 +761,7 @@ export const handlers: Record<string, Handler> = {
 
   remove_mod: async a => {
     const gid = need(a.game, 'game'), id = need(a.id, 'id');
-    const ov = overlayOf(gid);
+    const ov = overlayOf(gid) ?? (a.kind === 'overlay' ? autoOf(gid) : null);
     if (ov) await removeOverlayMod(gid, ov.root, id); // its files go out of the game, the originals come back
     const oldStyle = a.kind !== 'overlay' && !(ov && a.modsDir && sameDir(a.modsDir, ov.root));
     if (a.modsDir && oldStyle) await rmAsync(target(a.modsDir, { id, root: a.root ?? '' }));
@@ -753,7 +774,7 @@ export const handlers: Record<string, Handler> = {
   remove_game: async a => {
     const gid = need(a.game, 'game');
     const st = a.state as GameData | undefined;
-    const ov = overlayOf(gid);
+    const ov = overlayOf(gid) ?? autoOf(gid);
     if (ov) await removeAllOverlay(gid, ov.root);
     if (a.modsDir && st && !(ov && sameDir(a.modsDir, ov.root))) for (const m of st.mods) if (!m.kind) await rmAsync(target(a.modsDir, m));
     await rmAsync(libDir(gid));
@@ -808,12 +829,12 @@ export const handlers: Record<string, Handler> = {
   // ----- backups of the game's own files that mods replaced -----
   list_backups: a => {
     const gid = need(a.game, 'game');
-    return { dir: backupRoot(gid), files: listBackups(gid), supported: !!overlayOf(gid) };
+    return { dir: backupRoot(gid), files: listBackups(gid), supported: !!(overlayOf(gid) ?? autoOf(gid)) };
   },
 
   restore_backup: a => {
     const gid = need(a.game, 'game');
-    const ov = overlayOf(gid);
+    const ov = overlayOf(gid) ?? autoOf(gid);
     if (!ov) throw new Error('This game has no backups');
     restoreBackup(gid, ov.root, need(a.file, 'file'));
     return listBackups(gid);

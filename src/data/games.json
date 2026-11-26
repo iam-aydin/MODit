@@ -7,7 +7,10 @@
       "Polaris/Content/Paks"
     ],
     "modsPath": "Polaris/Content/Paks",
-    "modFolder": "~mods"
+    "modFolder": "~mods",
+    "overlayRoots": [
+      "Polaris"
+    ]
   },
   {
     "id": "doa5lr",
