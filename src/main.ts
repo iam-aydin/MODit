@@ -1,11 +1,12 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import fs from 'fs';
 import path from 'path';
-import { handlers } from './core';
+import { handlers, reapplyDb, refreshRemoteDb } from './core';
 import { initCovers, registerCoverProtocol, registerCoverScheme } from './covers';
-import { closeDb, getDb } from './db';
+import { closeDb, getDb, getSetting } from './db';
+import { onTheme, setThemeId, themeBg, themed } from './themes';
 import { libraryApi } from './library';
-import { closeBrowser, openBrowser, reloadBrowserChrome } from './browser';
+import { closeBrowser, openBrowser, pickTarget, reloadBrowserChrome } from './browser';
 import { downloadApi, init as initDownloads } from './downloads';
 import { getIcon } from './icons';
 import { playGame } from './launch';
@@ -15,13 +16,16 @@ let win: BrowserWindow | null = null;
 
 const toast = (m: string) => win?.webContents.send('toast', m);
 
+onTheme(() => { if (win && !win.isDestroyed()) win.setBackgroundColor(themeBg()); });
+
 function createWindow(): void {
   win = new BrowserWindow({
     width: 1200,
     height: 760,
     minWidth: 900,
     minHeight: 600,
-    backgroundColor: '#07060c',
+    backgroundColor: themeBg(),
+    show: false, // shown once the page is drawn in the chosen theme, so there is no flash of the wrong colours
     title: 'MODit',
     autoHideMenuBar: true,
     webPreferences: {
@@ -31,6 +35,11 @@ function createWindow(): void {
       sandbox: true,
     },
   });
+  const w = win;
+  let shown = false;
+  const reveal = () => { if (!shown && !w.isDestroyed()) { shown = true; w.show(); } };
+  Promise.all([new Promise<void>(r => w.once('ready-to-show', () => r())), themed(w.webContents, 'main')]).then(reveal);
+  setTimeout(reveal, 3000); // never leave the window hidden, whatever happens
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
   // `npm run dev`: refresh the UI whenever dist/renderer changes
@@ -57,6 +66,7 @@ const extra: Record<string, Fn> = {
   ...libraryApi,
   open_browser: a => { openBrowser(String(a.url), () => win); return null; },
   play_game: a => playGame(a),
+  pick_target: a => pickTarget({ title: String(a.title || ''), items: Array.isArray(a.items) ? a.items : [], selected: a.selected, multi: !!a.multi, okLabel: a.okLabel, allowEmpty: !!a.allowEmpty, profile: a.profile ? String(a.profile) : undefined, profiles: Array.isArray(a.profiles) ? a.profiles.map(String) : undefined }),
   get_icon: a => getIcon(String(a.url)),
   ...(downloadApi as unknown as Record<string, Fn>),
 };
@@ -100,9 +110,16 @@ else {
       return;
     }
     registerCoverProtocol();
+    try { reapplyDb(); } catch (e) { console.error('Game database:', e); } // saved copy + bundled file, instant
+    try { setThemeId(getSetting('theme')); } catch (e) { console.error('Theme:', e); }
     createWindow();
     initDownloads(() => win);
     initCovers(() => win);
+    // newest game database from GitHub, in the background; offline just keeps the saved copy
+    refreshRemoteDb().then(ok => {
+      if (!ok) return;
+      try { if (reapplyDb() > 0) toast('Game database updated. Restart MODit to apply it to your games.'); } catch (e) { console.error('Game database:', e); }
+    });
   });
   app.on('window-all-closed', () => app.quit());
   app.on('will-quit', closeDb);

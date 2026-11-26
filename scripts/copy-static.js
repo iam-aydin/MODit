@@ -6,6 +6,6 @@ const dist = path.join(root, 'dist');
 fs.mkdirSync(path.join(dist, 'renderer'), { recursive: true });
 fs.mkdirSync(path.join(dist, 'data'), { recursive: true });
 for (const f of fs.readdirSync(path.join(root, 'src', 'renderer'))) {
-  if (/\.html$/i.test(f)) fs.copyFileSync(path.join(root, 'src', 'renderer', f), path.join(dist, 'renderer', f));
+  if (/\.(html|js)$/i.test(f)) fs.copyFileSync(path.join(root, 'src', 'renderer', f), path.join(dist, 'renderer', f));
 }
 fs.copyFileSync(path.join(root, 'src', 'data', 'games.json'), path.join(dist, 'data', 'games.json'));

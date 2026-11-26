@@ -41,6 +41,9 @@ export const activeDownloads = () => [...list.values()].filter(d => d.state === 
 
 const snapshot = () => [...list.values()].sort((a, b) => b.time - a.time);
 
+/** Files MODit can install (the same list the app's Downloads section shows an Install button for). */
+export const INSTALLABLE = /\.(zip|7z|rar|pak|ucas|utoc|tkmod)$/i;
+
 function flush(): void {
   timer = null;
   getWin()?.webContents.send('downloads', snapshot());
@@ -136,7 +139,16 @@ const inDownloads = (p: string) => {
 };
 
 /** For the browser's downloads popup: the newest few downloads of the selected game, and a rescan of the folders. */
-export const recentDownloads = () => snapshot().filter(d => !activeGame || d.gameId === activeGame.id).slice(0, 8).map(d => ({ id: d.id, name: d.name, received: d.received, total: d.total, state: d.state }));
+export const recentDownloads = () => snapshot().filter(d => !activeGame || d.gameId === activeGame.id).slice(0, 8)
+  .map(d => ({ id: d.id, name: d.name, received: d.received, total: d.total, state: d.state, installable: d.state === 'done' && INSTALLABLE.test(d.name) }));
+
+/** The browser's Install button: asks the app to install a finished download (the app asks its questions on top of the browser window). */
+export function installDownload(id: string): boolean {
+  const d = list.get(id);
+  if (!d || d.state !== 'done' || !INSTALLABLE.test(d.name) || !fs.existsSync(d.path)) return false;
+  getWin()?.webContents.send('install-download', d.path, d.gameId);
+  return true;
+}
 export const refreshDownloads = () => { prune(); scan(); };
 
 export const downloadApi = {

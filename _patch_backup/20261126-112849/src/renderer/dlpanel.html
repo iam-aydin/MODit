@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Downloads</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>
+*{box-sizing:border-box;margin:0;user-select:none;-webkit-user-drag:none;scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+html,body{background:transparent;overflow:hidden}
+body{font:13px system-ui,'Segoe UI',sans-serif;color:#ece9f7}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+#p{margin:0;opacity:0;transform:translateY(-8px) scale(.97);transform-origin:top right;transition:opacity .25s,transform .25s;border-radius:20px;background:rgba(19,16,29,.97);border:1px solid rgba(255,255,255,.16);box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);overflow:hidden}
+#h{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 8px;font-weight:700;font-size:14px}
+#h small{font-weight:400;color:#8c85a6}
+#l{max-height:330px;overflow-y:auto;padding:4px 8px}
+.it{display:flex;align-items:center;gap:12px;padding:10px;border-radius:14px;cursor:pointer;transition:background .15s}
+.it:hover{background:rgba(255,255,255,.07)}
+.ic{width:36px;height:36px;border-radius:11px;flex:none;display:grid;place-items:center;font-size:18px;background:linear-gradient(135deg,rgba(110,25,30,.8),rgba(25,40,100,.8));border:1px solid rgba(255,255,255,.16)}
+.in{flex:1;min-width:0}
+.nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb{color:#8c85a6;font-size:12px;margin-top:1px}
+.sb.bad{color:#f08a8a}
+.pr{height:4px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:6px}
+.pr i{display:block;height:100%;background:linear-gradient(90deg,#991b1b,#1e40af);transition:width .25s}
+.x{width:26px;height:26px;border-radius:50%;flex:none;font-size:11px;background:rgba(255,255,255,.08)}
+.x:hover{background:rgba(255,255,255,.2)}
+.em{padding:26px 18px;text-align:center;color:#8c85a6;line-height:1.5}
+body.on #p{opacity:1;transform:none}
+#f{padding:8px 12px 12px}
+#all{width:100%;padding:0 16px;height:32px;border-radius:999px;border:2px solid rgba(255,255,255,.22);background:linear-gradient(90deg,rgba(80,20,24,.9),rgba(22,34,80,.9)) border-box no-repeat;font-weight:600}
+#all:hover{border-color:rgba(255,255,255,.4)}
+</style></head><body>
+<div id="p"><div id="h"><span>Recent downloads</span><small id="n"></small></div><div id="l"></div><div id="f"><button id="all">Show all downloads</button></div></div>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=b=>b>=1073741824?(b/1073741824).toFixed(2)+' GB':b>=1048576?(b/1048576).toFixed(1)+' MB':b>=1024?Math.round(b/1024)+' KB':b+' B';
+const ST={failed:'Failed',cancelled:'Cancelled'};
+let key='',busy=false,kept=false;
+function sub(d){return d.state=='downloading'?(d.total>0?fmt(d.received)+' / '+fmt(d.total):fmt(d.received)):d.state=='done'?fmt(d.total||d.received):ST[d.state]||d.state}
+function draw(list){
+  const k=JSON.stringify(list.map(d=>[d.id,d.state]));
+  if(k!==key){key=k;
+    $('#n').textContent=list.length?'':'';
+    $('#l').innerHTML=list.length?list.map(d=>`<div class="it" data-id="${esc(d.id)}" data-st="${d.state}" title="${d.state=='done'?'Show in folder':''}"><div class="ic">\u{1F4E6}</div><div class="in"><div class="nm">${esc(d.name)}</div><div class="sb ${d.state=='failed'?'bad':''}">${esc(sub(d))}</div>${d.state=='downloading'?'<div class="pr"><i></i></div>':''}</div>${d.state=='downloading'?'<button class="x" data-a="cancel" title="Cancel">\u2715</button>':''}</div>`).join(''):'<div class="em">Nothing downloaded yet.<br>Files you download here are saved for the selected game.</div>';
+    requestAnimationFrame(()=>dlp.size($('#p').offsetHeight))}
+  list.forEach(d=>{const el=$('.it[data-id="'+CSS.escape(d.id)+'"]');if(!el)return;
+    el.querySelector('.sb').textContent=sub(d);
+    const i=el.querySelector('.pr i');if(i)i.style.width=(d.total>0?Math.min(100,d.received/d.total*100):0)+'%'})}
+async function tick(){if(busy)return;busy=true;try{draw(await dlp.cmd('list')||[])}catch(_){}busy=false}
+$('#l').addEventListener('click',e=>{
+  const it=e.target.closest('.it');if(!it)return;
+  if(e.target.closest('[data-a="cancel"]')){dlp.cmd('cancel',it.dataset.id);return}
+  if(it.dataset.st=='done')dlp.cmd('show',it.dataset.id)});
+$('#all').onclick=()=>dlp.cmd('all');
+addEventListener('blur',()=>dlp.blur());
+dlp.onOpen(()=>{kept=false;key='';tick();document.body.classList.add('on');setTimeout(()=>dlp.size($('#p').offsetHeight),50)});
+dlp.onClose(()=>document.body.classList.remove('on'));
+addEventListener('mousemove',()=>{if(!kept){kept=true;dlp.keep()}});
+dlp.ready();
+setInterval(tick,500);tick();
+</script></body></html>

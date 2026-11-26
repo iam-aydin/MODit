@@ -2,6 +2,7 @@ import { shell } from 'electron';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { matchDef, within } from './core';
 import type { CommandArgs } from './types';
 
 export interface PlayResult { ok: boolean; how?: 'exe' | 'steam'; exe?: string; need?: 'exe' }
@@ -74,6 +75,14 @@ export function findGameExe(gameDir: string, title = ''): string | null {
   return best(shipping) || (shipping.length === 1 ? shipping[0].file : null);
 }
 
+/** The program the game database says starts this game (e.g. game.exe in the root folder), when it exists. */
+export function databaseExe(gameDir: string): string | null {
+  const def = matchDef(gameDir);
+  if (!def?.launch) return null;
+  const f = within(gameDir, def.launch);
+  try { return f && fs.statSync(f).isFile() ? f : null; } catch { return null; }
+}
+
 function runExe(exe: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const c = spawn(exe, [], { cwd: path.dirname(exe), detached: true, stdio: 'ignore' });
@@ -95,6 +104,9 @@ export async function playGame(a: CommandArgs): Promise<PlayResult> {
 
   const picked = a.exe ? path.resolve(a.exe) : '';
   if (picked && /\.exe$/i.test(picked) && fs.existsSync(picked) && fs.statSync(picked).isFile()) return start(picked);
+
+  const known = a.path && fs.existsSync(a.path) ? databaseExe(a.path) : null; // e.g. game.exe for Dead or Alive 5
+  if (known) return start(known);
 
   const id = a.path ? steamAppId(a.path) : null;
   if (id) {

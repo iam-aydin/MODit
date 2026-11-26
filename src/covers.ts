@@ -1,8 +1,10 @@
 import { BrowserWindow, nativeImage, net, protocol } from 'electron';
+import { thumbFile } from './thumbs';
 import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
-import { allowCoverRetry, coversDir, coversInUse, getGame, getSetting, gamesNeedingCover, updateGame } from './db';
+import { allowCoverRetry, coversDir, coversInUse, getGame, getSetting, gamesNeedingCover, listGames, setSetting, updateGame } from './db';
+import { COVER_LIMIT, fitJpeg, isJpeg } from './coverfit';
 import { steamAppId } from './launch';
 
 // Cover art comes from SteamGridDB (https://www.steamgriddb.com). It needs a free API key, which goes into Settings.
@@ -12,7 +14,6 @@ import { steamAppId } from './launch';
 
 const API = 'https://www.steamgriddb.com/api/v2';
 const RETRY_MS = 12 * 3600 * 1000; // a game that could not be matched is tried again after this long
-const MAX_W = 640;                 // stored width; the cards show them at about a third of that
 
 type Outcome = 'ok' | 'nokey' | 'offline' | 'notfound' | 'error';
 
@@ -30,10 +31,14 @@ export const registerCoverScheme = () =>
 /** Serves files of the covers folder only (modit://cover/<file name>). */
 export function registerCoverProtocol(): void {
   protocol.handle('modit', req => {
-    let name = '';
-    try { name = path.basename(decodeURIComponent(new URL(req.url).pathname)); } catch { /* bad address */ }
-    const file = path.join(coversDir(), name);
-    if (!name || !fs.existsSync(file)) return new Response('Not found', { status: 404 });
+    let file = '';
+    try { // modit://cover/<file>  or  modit://thumb/<game>/<mod>.jpg
+      const u = new URL(req.url);
+      const parts = decodeURIComponent(u.pathname).split('/').filter(Boolean).map(p => path.basename(p));
+      if (u.hostname === 'thumb' && parts.length === 2) file = thumbFile(parts[0], parts[1].replace(/\.jpg$/i, ''));
+      else if (parts.length === 1) file = path.join(coversDir(), parts[0]);
+    } catch { /* bad address */ }
+    if (!file || !fs.existsSync(file)) return new Response('Not found', { status: 404 });
     return net.fetch(pathToFileURL(file).toString());
   });
 }
@@ -48,25 +53,31 @@ function sniffExt(buf: Buffer): string | null {
   return null;
 }
 
-/** Shrinks the picture to a JPEG of at most MAX_W wide (the card crops it with object-fit: cover, so nothing is stretched).
- *  Formats Electron cannot decode (WebP) are stored as they are - the UI can still show them. Returns the stored file name. */
+/** Writes a cover file under a new name each time (so the UI never shows a stale cached picture) and returns that name. */
+function writeCover(id: string, bytes: Buffer, ext: string): string {
+  fs.mkdirSync(coversDir(), { recursive: true });
+  const name = `${id}-${Date.now().toString(36)}${ext}`;
+  fs.writeFileSync(path.join(coversDir(), name), bytes);
+  return name;
+}
+
+/** Recompresses the picture to a JPEG of at most COVER_LIMIT (100 KB) and 640 px wide (the card crops it with object-fit: cover,
+ *  so nothing is stretched). A picture Electron cannot decode (WebP) is only kept when it is already small enough.
+ *  Returns the stored file name, or null when the bytes are not a usable picture. */
 function storeImage(id: string, buf: Buffer): string | null {
   const ext = sniffExt(buf);
   if (!ext) return null; // not a picture (e.g. an HTML error page)
-  fs.mkdirSync(coversDir(), { recursive: true });
-  const stamp = Date.now().toString(36); // new name each time = the UI never shows a stale cached picture
-  let out = buf, outExt = ext;
-  try {
-    const img = nativeImage.createFromBuffer(buf);
-    if (!img.isEmpty()) {
-      const { width } = img.getSize();
-      out = (width > MAX_W ? img.resize({ width: MAX_W, quality: 'best' }) : img).toJPEG(88);
-      outExt = '.jpg';
-    }
-  } catch { /* keep the original bytes */ }
-  const name = `${id}-${stamp}${outExt}`;
-  fs.writeFileSync(path.join(coversDir(), name), out);
-  return name;
+  let out: Buffer | null = null;
+  try { out = fitJpeg(nativeImage.createFromBuffer(buf)); } catch { /* not decodable */ }
+  if (out) return writeCover(id, out, '.jpg');
+  return buf.length <= COVER_LIMIT ? writeCover(id, buf, ext) : null;
+}
+
+/** A cover the window already shrank to a JPEG (any picture format can be read there). Still checked here: it must be a JPEG, and small. */
+function storeJpeg(id: string, bytes: Buffer): string | null {
+  if (!isJpeg(bytes)) return null;
+  if (bytes.length <= COVER_LIMIT) return writeCover(id, bytes, '.jpg');
+  return storeImage(id, bytes); // somehow still too big: shrunk again here
 }
 
 const dropFile = (name: string | null | undefined) => {
@@ -103,7 +114,7 @@ export function pickGrid(grids: Grid[]): Grid | null {
 }
 
 async function findGrids(key: string, game: { name: string; path: string }): Promise<Grid[] | null> {
-  const q = '?types=static&nsfw=false&humor=false';
+  const q = '?types=static&nsfw=false&humor=false&mimes=image/png,image/jpeg'; // WebP is left out: Electron cannot shrink it
   const appId = game.path ? steamAppId(game.path) : null;
   if (appId) {
     try { const g = await api<Grid[]>(key, `/grids/steam/${appId}${q}`); if (g && g.length) return g; }
@@ -163,8 +174,33 @@ export function scheduleCovers(delayMs = 4000): void {
   timer = setTimeout(() => { timer = null; run().catch(e => console.error('covers:', e)); }, delayMs);
 }
 
+/** Once, at start-up: covers saved by older versions that are over 100 KB are recompressed to a JPEG under 100 KB.
+ *  A cover Electron cannot read (a big WebP) stays as it is. The result is remembered, so this never runs twice. */
+export async function shrinkExistingCovers(): Promise<number> {
+  if (getSetting('coversShrunk') === '1') return 0;
+  let n = 0;
+  for (const g of listGames()) {
+    if (!g.cover) continue;
+    try {
+      const file = path.join(coversDir(), path.basename(g.cover));
+      if (!fs.existsSync(file) || fs.statSync(file).size <= COVER_LIMIT) continue;
+      const out = fitJpeg(nativeImage.createFromBuffer(fs.readFileSync(file)));
+      if (!out) continue;
+      const name = writeCover(g.id, out, '.jpg');
+      updateGame(g.id, { cover: name });
+      dropFile(g.cover);
+      notify(g.id, name);
+      n++;
+    } catch (e) { console.error('cover shrink:', e); }
+    await new Promise(res => setImmediate(res)); // never hold the app up for long
+  }
+  setSetting('coversShrunk', '1');
+  return n;
+}
+
 export function initCovers(win: () => BrowserWindow | null): void {
   getWin = win;
+  setTimeout(() => { shrinkExistingCovers().catch(e => console.error('covers:', e)); }, 3000);
   scheduleCovers(8000);
   setInterval(() => scheduleCovers(0), 3 * 60 * 1000); // picks up games after the connection comes back
   // covers of games that no longer exist
@@ -175,12 +211,12 @@ export function initCovers(win: () => BrowserWindow | null): void {
 }
 
 // ---------- commands used by the UI ----------
-/** The user's own picture for a game. */
-export function setCustomCover(id: string, file: string): string {
+/** The user's own picture for a game: `bytes` is the JPEG the window made (any picture format), `file` is a PNG/JPG read here. Always ends up under 100 KB. */
+export function setCustomCover(id: string, src: { bytes?: Uint8Array; file?: string }): string {
   const g = getGame(id);
   if (!g) throw new Error('Game not found');
-  const name = storeImage(id, fs.readFileSync(file));
-  if (!name) throw new Error('That file is not a picture (use PNG, JPG or WebP)');
+  const name = src.bytes ? storeJpeg(id, Buffer.from(src.bytes)) : src.file ? storeImage(id, fs.readFileSync(src.file)) : null;
+  if (!name) throw new Error('That file could not be used as a cover (use PNG, JPG or WebP)');
   dropFile(g.cover);
   updateGame(id, { cover: name, coverCustom: true });
   return name;

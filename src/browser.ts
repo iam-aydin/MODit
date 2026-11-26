@@ -1,11 +1,13 @@
 import { BrowserWindow, clipboard, ipcMain, WebContents, WebContentsView } from 'electron';
 import path from 'path';
-import { activeDownloads, browserSession, downloadApi, onDownloadEvent, PARTITION, recentDownloads, refreshDownloads } from './downloads';
+import { onTheme, themed, themeBg } from './themes';
+import { activeDownloads, browserSession, downloadApi, installDownload, onDownloadEvent, PARTITION, recentDownloads, refreshDownloads } from './downloads';
 
 // The MODit browser: one window with a tab strip + address bar (renderer/browser.html) on top
 // and one WebContentsView per tab below it.
 
 const CHROME_H = 84; // tab strip (40) + toolbar (44)
+const isNewTab = (url: string) => /[\\/]newtab\.html(?:[?#]|$)/.test(url); // only this page of a tab is themed, never a website
 
 interface Tab {
   id: number;
@@ -37,6 +39,10 @@ let menuOpen = false;
 let menuItems: MenuItem[] = [];
 let menuHideTimer: NodeJS.Timeout | null = null;
 const MENU_W = 270;
+onTheme(() => {
+  if (alive(win)) win.setBackgroundColor(themeBg());
+  if (chrome && !chrome.webContents.isDestroyed()) chrome.setBackgroundColor(themeBg());
+});
 
 const isWeb = (u: string) => /^https?:\/\//i.test(u);
 const alive = (w: BrowserWindow | null): w is BrowserWindow => !!w && !w.isDestroyed();
@@ -62,6 +68,7 @@ function layout(): void {
   chrome?.setBounds({ x: 0, y: 0, width: w, height: CHROME_H });
   current()?.view.setBounds({ x: 0, y: CHROME_H, width: w, height: Math.max(0, h - CHROME_H) });
   placeDl();
+  placePick();
   hideMenu();
 }
 
@@ -118,6 +125,7 @@ function openTab(url: string | null, o: { foreground?: boolean; opener?: number 
   const view = new WebContentsView({ webPreferences: { partition: PARTITION, contextIsolation: true, nodeIntegration: false, sandbox: true } });
   const tab: Tab = { id: nextId++, view, title: '', loading: false, favicon: '', openedBy: o.opener };
   tabs.splice(insertIndex(o.opener), 0, tab);
+  themed(view.webContents, 'newtab', isNewTab);
   wire(tab);
   if (url) view.webContents.loadURL(url).catch(() => undefined); // failures are reported by did-fail-load
   else view.webContents.loadFile(newTabPage()).catch(() => undefined);
@@ -237,13 +245,15 @@ function wire(tab: Tab): void {
 }
 
 function create(): void {
-  const w = new BrowserWindow({ width: 1250, height: 850, minWidth: 640, minHeight: 420, title: 'MODit Browser', backgroundColor: '#0b0912' });
+  const w = new BrowserWindow({ width: 1250, height: 850, minWidth: 640, minHeight: 420, title: 'MODit Browser', backgroundColor: themeBg() });
   win = w;
   w.removeMenu();
   const c = new WebContentsView({
     webPreferences: { preload: path.join(__dirname, 'browser-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   chrome = c;
+  c.setBackgroundColor(themeBg());
+  themed(c.webContents, 'browser');
   w.contentView.addChildView(c);
   c.webContents.loadFile(path.join(__dirname, 'renderer', 'browser.html')).catch(() => undefined);
   c.webContents.on('will-navigate', e => e.preventDefault());
@@ -257,6 +267,7 @@ function create(): void {
   w.on('enter-full-screen', layout);
   w.on('leave-full-screen', layout);
   w.on('closed', () => {
+    closePick(null);
     for (const t of tabs) if (!t.view.webContents.isDestroyed()) t.view.webContents.close();
     if (!c.webContents.isDestroyed()) c.webContents.close();
     tabs = [];
@@ -303,6 +314,7 @@ function showDl(focus = true): void {
       webPreferences: { preload: path.join(__dirname, 'dlpanel-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
     });
     dlPanel.setBackgroundColor('#00000000');
+    themed(dlPanel.webContents, 'dlpanel');
     dlPanel.webContents.loadFile(path.join(__dirname, 'renderer', 'dlpanel.html')).catch(() => undefined);
     dlPanel.webContents.on('before-input-event', (e, i) => { if (i.type === 'keyDown' && i.key === 'Escape') { e.preventDefault(); hideDl(); } });
   }
@@ -341,6 +353,7 @@ ipcMain.handle('br:dl', (e, name: string, id?: string) => {
     case 'list': return recentDownloads();
     case 'show': downloadApi.show_download({ dlId: String(id) }); return null;
     case 'cancel': downloadApi.cancel_download({ dlId: String(id) }); return null;
+    case 'install': hideDl(); installDownload(String(id)); return null; // the question appears on top of this window, the app stays where it is
     case 'all': hideDl(); openAppDownloads(); return null;
   }
   return null;
@@ -353,6 +366,61 @@ ipcMain.on('br:dl-keep', e => { // the mouse is over the popup: keep it open and
   if (dlOpen) dlPanel?.webContents.focus();
 });
 ipcMain.on('br:dl-ready', e => { if (fromDl(e) && dlOpen) e.sender.send('dl:open'); });
+
+// ---------- "who is this mod for?" (Dead or Alive 5 and other games that need a choice) ----------
+interface PickOpts { title: string; items: Array<{ v: string; l: string; c?: number }>; selected?: string | string[]; multi?: boolean; okLabel?: string; allowEmpty?: boolean; profile?: string; profiles?: string[] }
+type PickValue = string | string[] | null;
+let pickView: WebContentsView | null = null;
+let pickResolve: ((v: PickValue, profile?: string) => void) | null = null;
+let pickOpts: PickOpts | null = null;
+
+function placePick(): void {
+  if (!alive(win) || !pickView || pickView.webContents.isDestroyed()) return;
+  const [w, h] = win.getContentSize();
+  pickView.setBounds({ x: 0, y: 0, width: w, height: h });
+}
+
+function closePick(value: PickValue, profile?: string): void {
+  const v = pickView, r = pickResolve;
+  pickView = null; pickResolve = null; pickOpts = null;
+  if (v) {
+    try { if (alive(win)) win.contentView.removeChildView(v); } catch { /* not attached */ }
+    if (!v.webContents.isDestroyed()) v.webContents.close();
+  }
+  r?.(value, profile);
+}
+
+/**
+ * Asks the question on top of the browser window (so the user does not have to leave the page they downloaded from).
+ * available:false = the browser is not open or the main window is the one in front: the app shows its own dialog then.
+ */
+export function pickTarget(opts: PickOpts): Promise<{ available: boolean; value: PickValue; profile?: string }> {
+  const main = getMain();
+  if (!alive(win) || (alive(main) && main.isFocused())) return Promise.resolve({ available: false, value: null });
+  closePick(null);
+  return new Promise(resolve => {
+    const w = win!;
+    pickResolve = (value, profile) => resolve({ available: true, value, profile });
+    pickOpts = opts;
+    const v = new WebContentsView({
+      webPreferences: { preload: path.join(__dirname, 'picker-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+    });
+    v.setBackgroundColor('#00000000');
+    themed(v.webContents, 'picker');
+    pickView = v;
+    v.webContents.loadFile(path.join(__dirname, 'renderer', 'picker.html')).catch(() => undefined);
+    w.contentView.addChildView(v);
+    placePick();
+    v.webContents.focus();
+  });
+}
+
+const fromPick = (e: Electron.IpcMainEvent) => !!pickView && !pickView.webContents.isDestroyed() && e.sender === pickView.webContents;
+ipcMain.on('br:pick-ready', e => { if (fromPick(e) && pickOpts) e.sender.send('pick:show', pickOpts); });
+ipcMain.on('br:pick-done', (e, v: unknown, profile: unknown) => {
+  if (!fromPick(e)) return;
+  closePick(Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : typeof v === 'string' ? v : null, typeof profile === 'string' ? profile : undefined);
+});
 
 // ---------- right-click menu ----------
 const menuHeight = (items: MenuItem[]) => 18 + items.reduce((n, i) => n + (i.sep ? 11 : 34), 0);
@@ -383,6 +451,7 @@ function popupMenu(items: MenuItem[], x: number, y: number): void {
       webPreferences: { preload: path.join(__dirname, 'menu-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
     });
     menuView.setBackgroundColor('#00000000');
+    themed(menuView.webContents, 'menu');
     menuView.webContents.loadFile(path.join(__dirname, 'renderer', 'menu.html')).catch(() => undefined);
   }
   menuItems = items;

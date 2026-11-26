@@ -49,6 +49,10 @@ export function getDb(): Database.Database {
   d.pragma('synchronous = NORMAL');
   d.pragma('foreign_keys = ON');
   d.exec(SCHEMA);
+  // columns added later (older databases get them here)
+  const cols = (d.prepare('PRAGMA table_info(games)').all() as Array<{ name: string }>).map(x => x.name);
+  if (!cols.includes('matched_id')) d.exec('ALTER TABLE games ADD COLUMN matched_id TEXT');
+  if (!cols.includes('custom_path')) d.exec('ALTER TABLE games ADD COLUMN custom_path INTEGER NOT NULL DEFAULT 0');
   db = d;
   importLegacyState();
   return d;
@@ -70,18 +74,20 @@ export const setSetting = (key: string, value: string): void => {
 };
 
 export function getSettings(): Settings {
-  return { sgdbKey: getSetting('sgdbKey') || '', skipBrowserWarn: getSetting('skipBrowserWarn') === '1' };
+  return { sgdbKey: getSetting('sgdbKey') || '', skipBrowserWarn: getSetting('skipBrowserWarn') === '1', theme: getSetting('theme') || 'glass' };
 }
 
 // ---------- games ----------
 interface Row {
   id: string; name: string; path: string; mods_dir: string; mod_folder: string | null; exe: string;
-  cover: string | null; cover_custom: number;
+  cover: string | null; cover_custom: number; matched_id: string | null; custom_path: number;
 }
 
 const toGame = (r: Row): Game => {
   const g: Game = { id: r.id, name: r.name, path: r.path, modsDir: r.mods_dir, exe: r.exe, cover: r.cover, coverCustom: !!r.cover_custom };
   if (r.mod_folder !== null) g.modFolder = r.mod_folder; // null = "use the default"
+  g.matchedId = r.matched_id ?? null;
+  g.customPath = !!r.custom_path;
   return g;
 };
 
@@ -105,11 +111,12 @@ export function loadAll(): AppState {
 export function addGame(g: Game, data: GameData): void {
   const d = getDb();
   d.transaction(() => {
-    d.prepare(`INSERT INTO games(id, name, path, mods_dir, mod_folder, exe, cover, cover_custom, cover_tried, added_at)
-               VALUES(@id, @name, @path, @mods_dir, @mod_folder, @exe, NULL, 0, 0, @added_at)
+    d.prepare(`INSERT INTO games(id, name, path, mods_dir, mod_folder, exe, cover, cover_custom, cover_tried, added_at, matched_id, custom_path)
+               VALUES(@id, @name, @path, @mods_dir, @mod_folder, @exe, NULL, 0, 0, @added_at, @matched_id, @custom_path)
                ON CONFLICT(id) DO NOTHING`).run({
       id: g.id, name: g.name, path: g.path || '', mods_dir: g.modsDir || '',
       mod_folder: g.modFolder ?? null, exe: g.exe || '', added_at: Date.now(),
+      matched_id: g.matchedId ?? null, custom_path: g.customPath ? 1 : 0,
     });
     d.prepare('INSERT OR REPLACE INTO game_data(game_id, data) VALUES(?, ?)').run(g.id, JSON.stringify(data));
   })();
@@ -126,7 +133,7 @@ export const getGame = (id: string): (Game & { coverTried: number }) | null => {
   return r ? { ...toGame(r), coverTried: r.tried } : null;
 };
 
-export interface GamePatch { name?: string; exe?: string; modsDir?: string; modFolder?: string; cover?: string | null; coverCustom?: boolean; coverTried?: number }
+export interface GamePatch { name?: string; exe?: string; modsDir?: string; modFolder?: string; cover?: string | null; coverCustom?: boolean; coverTried?: number; matchedId?: string | null; customPath?: boolean }
 
 export function updateGame(id: string, p: GamePatch): void {
   const sets: string[] = [];
@@ -138,7 +145,17 @@ export function updateGame(id: string, p: GamePatch): void {
   if (p.cover !== undefined) { sets.push('cover = @cover'); v.cover = p.cover; }
   if (p.coverCustom !== undefined) { sets.push('cover_custom = @cc'); v.cc = p.coverCustom ? 1 : 0; }
   if (p.coverTried !== undefined) { sets.push('cover_tried = @ct'); v.ct = p.coverTried; }
+  if (p.matchedId !== undefined) { sets.push('matched_id = @mid'); v.mid = p.matchedId; }
+  if (p.customPath !== undefined) { sets.push('custom_path = @cp'); v.cp = p.customPath ? 1 : 0; }
   if (sets.length) getDb().prepare(`UPDATE games SET ${sets.join(', ')} WHERE id = @id`).run(v);
+}
+
+export const listGames = (): Game[] => (getDb().prepare('SELECT * FROM games ORDER BY added_at, rowid').all() as Row[]).map(toGame);
+
+/** How many mods a game has (0 when it has none or its data row is missing). */
+export function modCount(id: string): number {
+  const r = getDb().prepare('SELECT data FROM game_data WHERE game_id = ?').get(id) as { data: string } | undefined;
+  try { const d = r ? JSON.parse(r.data) : null; return Array.isArray(d?.mods) ? d.mods.length : 0; } catch { return 0; }
 }
 
 export function deleteGame(id: string): void {

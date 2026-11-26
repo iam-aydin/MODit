@@ -112,6 +112,7 @@ header{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(255,255
 .mod .row{flex-wrap:wrap;gap:8px}.mod .row>div:first-child{flex:1 1 100%;min-width:0}
 .mod h3{font-size:14px;overflow-wrap:anywhere;line-height:1.25}
 .mod .pill{margin-left:auto}.mod .thumb{min-height:56px}
+.mod .thumb{position:relative;overflow:hidden}.mod .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 
 .brand{font-size:22px;font-weight:800;letter-spacing:.5px;padding:2px 12px 14px}
 .brand span{background:linear-gradient(90deg,#c0393f,#4a6fd8);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -122,6 +123,7 @@ header{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(255,255
 .card{position:relative}
 .rm{position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.5);display:grid;place-items:center;font-size:12px;opacity:0;transition:.2s;z-index:2}
 .card:hover .rm{opacity:1}.rm:hover{background:rgba(190,40,55,.85)}
+.rm svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:block}
 .gcard small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* thicker button borders */
 .btn,.btn.ghost{border:2px solid rgba(255,255,255,.22)}
@@ -165,6 +167,9 @@ body.dragging,body.dragging *{cursor:grabbing!important}
 /* ===== gradients must cover the border area too, otherwise the tile repeats under the border (blue edge on the left, red edge on the right) ===== */
 .btn,.btn:hover,.btn.ghost,.btn.ghost:hover,.btn.danger,.tag,.ico,.ico.has,.thumb,.nav,.nav.on,.ddi,.ddi.on,.card,.game,.pill,.pill.on,.prog i{background-origin:border-box!important;background-repeat:no-repeat!important}
 .btn.danger,.btn.danger:hover{background-image:linear-gradient(90deg,rgba(150,30,40,.95),rgba(100,24,70,.95))}
+/* confirm dialogs: a quiet grey Cancel on the left, far from the main button, so it is never clicked by accident */
+#askNo,#askNo:hover{background:rgba(255,255,255,.06)!important;background-image:none!important;border:2px solid rgba(255,255,255,.1)!important;color:#8c85a6;box-shadow:none;transform:none;font-weight:500}
+#askNo:hover{background:rgba(255,255,255,.1)!important;color:#b5afc9}
 .nav.bottom{margin-top:auto}
 /* ===== switch-game window: header stays, only the games scroll (no scrollbar, so nothing shifts) ===== */
 .gbox{display:flex;flex-direction:column;overflow:hidden;max-height:84vh}
@@ -214,10 +219,42 @@ body.v-settings header>:not(h1){display:none!important}
 .dot img{width:26px;height:26px;object-fit:contain;display:block}
 .gcard .thumb .ph{font-size:30px;font-weight:700;color:rgba(255,255,255,.45)}
 .ctx button{font-size:15px;padding:8px 12px}
+/* busy indicator + disabled buttons + profile picker in dialogs + rename */
+.btn:disabled{opacity:.45;cursor:default;transform:none;box-shadow:none}
+.busy{position:fixed;left:236px;bottom:20px;z-index:35;display:none;align-items:center;gap:10px;padding:9px 16px;border-radius:999px;background:rgba(30,24,48,.95);border:1px solid rgba(255,255,255,.15);color:var(--tx)}
+body.syncing .busy{display:flex}
+.busy i{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.2);border-top-color:#8aa4ff;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.profline{display:flex;align-items:center;gap:8px}
+.profline .dd{margin-left:2px}.profline .btn{padding:6px 14px;font-size:13px}
+.profline .ddMenu{left:0;right:auto;top:calc(100% + 8px);min-width:170px;max-height:220px;overflow:auto;background:rgba(20,16,32,.97);z-index:60}
+/* the (2/3) counter sits in the top-right corner of a dialog */
+.box{position:relative}
+.box .tagc{position:absolute;top:16px;right:20px;padding:4px 11px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:var(--mut);font-size:12px;font-weight:600;letter-spacing:.3px}
+.box .tagc:empty{display:none}
+.box.tagged h2{padding-right:56px}
+.card .acts{display:flex;gap:8px;flex:none;flex-wrap:wrap}
+#profGrid .row{flex-wrap:wrap}#profGrid .row>div:first-child{flex:1 1 100%;min-width:0}#profGrid h3{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#profGrid .acts{margin-left:auto}
+.ddi .pn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ddi .ren{opacity:.45;padding:0 4px}.ddi .ren:hover{opacity:1}
+/* which profile an install goes to */
+.profline{color:var(--mut);font-size:13px;margin-top:-8px}.profline:empty{display:none}.profline b{color:var(--tx)}
 /* backups section */
 .bkn{flex:1;min-width:0}
 .bkn b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bkn small{display:block;color:var(--mut)}
+/* ===== appearance: the theme picker in Settings ===== */
+.themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.tcard{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:18px;border:2px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);text-align:left;cursor:pointer;transition:.2s}
+.tcard:hover{border-color:rgba(255,255,255,.3)}
+.tcard.on{border-color:var(--pu2)}
+.tcard b{display:block;margin-top:4px}
+.tcard small{color:var(--mut);line-height:1.35}
+.tsw{position:relative;height:62px;border-radius:12px;overflow:hidden;border:1px solid rgba(128,128,128,.35)}
+.tsw i{position:absolute;display:block}
+.tsw .c1{left:8px;right:8px;bottom:8px;height:28px;border-radius:9px;border:1px solid rgba(128,128,128,.3)}
+.tsw .c2{left:15px;bottom:15px;width:36px;height:14px;border-radius:7px}
+.tsw .c3{right:16px;bottom:15px;width:14px;height:14px;border-radius:50%}
 </style></head><body>
 <div class="orb o1"></div><div class="orb o2"></div>
 <aside>
@@ -227,6 +264,7 @@ body.v-settings header>:not(h1){display:none!important}
   <button class="nav" data-v="profiles">Profiles</button>
   <button class="nav" data-v="browser">Browser</button>
   <button class="nav" data-v="downloads">Downloads</button>
+  <button class="nav" data-v="requirements">Requirements</button>
   <button class="nav" data-v="backups">Backups</button>
   <button class="nav bottom" data-v="settings">Settings</button>
 </aside>
@@ -241,7 +279,11 @@ body.v-settings header>:not(h1){display:none!important}
     <div class="dllist" id="dlList"></div></section>
   <section class="view scroll" id="browser"><div class="bar"><input id="url" placeholder="Type or paste a web address"><button class="btn" id="go">Go</button></div>
     <div class="grid" id="siteGrid"></div></section>
+  <section class="view scroll" id="requirements"><div class="bar"><span class="lead">What this game needs before mods can be installed. Mods cannot be added until everything here is installed.</span><button class="btn ghost" id="reqRe">Recheck</button></div><div class="grid" id="reqList"></div></section>
   <section class="view scroll" id="backups"><div class="bar"><span class="lead">Before a mod replaces one of the game's own files, MODit saves the original here. Turning a mod off or removing it puts the originals back by itself.</span><button class="btn ghost" id="bkOpen">Open folder</button></div><div class="dllist" id="bkList"></div></section><section class="view scroll" id="settings"><div class="set">
+    <div class="scard"><h3>Appearance</h3>
+      <p>Pick how MODit looks. It applies to the whole app, including the Browser window, and is remembered.</p>
+      <div class="themes" id="themes"></div></div>
     <div class="scard"><h3>Game covers</h3>
       <p>MODit downloads cover art from <a href="https://www.steamgriddb.com/profile/preferences/api" target="_blank">SteamGridDB</a> a few seconds after you add a game, while you are online. It needs a free API key: sign in on SteamGridDB, open Preferences &gt; API and paste the key here.</p>
       <div class="line"><input id="sgKey" type="password" placeholder="SteamGridDB API key" spellcheck="false" autocomplete="off"><button class="btn" id="sgSave">Save</button></div>
@@ -254,17 +296,24 @@ body.v-settings header>:not(h1){display:none!important}
 </main>
 <div class="gm" id="gm"><div class="gbox"><div class="row"><h2>Switch game</h2><button class="btn" id="gAddBtn">Add Game ＋</button><input type="file" id="gDir" webkitdirectory hidden></div><div class="grid scroll" id="gGrid"></div></div></div>
 <div class="drop" id="drop"><div>Drop a mod archive</div></div>
-<div class="modal" id="modal"><div class="box"><h2 id="mTitle">Choose mods to install</h2><div class="list scroll" id="mList"></div>
+<div class="modal" id="modal"><div class="box"><h2 id="mTitle">Choose mods to install</h2><div class="profline" id="mProf"></div><div class="list scroll" id="mList"></div>
   <div class="row"><button class="btn ghost" id="mAll">Select all</button><div><button class="btn ghost" id="mCancel">Cancel</button> <button class="btn" id="mOk">Install</button></div></div></div></div>
+<div class="modal top" id="tgt"><div class="box"><span class="tagc" id="tgtTag"></span><h2 id="tgtT"></h2><div class="profline" id="tgtProf"></div><input id="tgtQ" placeholder="Search (type a name to select it)" spellcheck="false" autocomplete="off">
+  <div id="tgtTools" style="display:none;align-items:center;gap:8px"><button class="btn ghost sm" id="tgtAll">Select all</button><button class="btn ghost sm" id="tgtNone">Unselect all</button><small id="tgtCnt" style="margin-left:auto"></small></div><div class="list scroll" id="tgtL"></div>
+  <div class="row"><span></span><div><button class="btn ghost" id="tgtNo">Cancel</button> <button class="btn" id="tgtOk">Install</button></div></div></div></div>
 <div class="modal" id="siteModal"><div class="box"><h2>Add a site</h2><input id="sName" placeholder="Name (optional)"><input id="sUrl" placeholder="https://example.com"><div class="row"><span></span><div><button class="btn ghost" id="sCancel">Cancel</button> <button class="btn" id="sOk">Add</button></div></div></div></div>
 <div class="modal" id="warn"><div class="box"><h2>Before you browse</h2>
   <p id="warnTxt"></p>
   <p>Only download mods that are made for that game. A mod made for a different game (say a Balatro mod while Tekken 8 is selected) can break the install.</p>
   <div class="row"><label class="skip wait" id="warnSkipLbl"><input type="checkbox" id="warnSkip" disabled><span id="warnSkipTxt"></span></label><div><button class="btn ghost" id="warnNo">Cancel</button> <button class="btn" id="warnOk">Continue</button></div></div></div></div>
-<div class="modal top" id="ask"><div class="box"><h2 id="askT"></h2><p id="askM"></p><div class="row"><span></span><div><button class="btn ghost" id="askNo">Cancel</button> <button class="btn danger" id="askOk">OK</button></div></div></div></div>
+<div class="modal top" id="ask"><div class="box"><h2 id="askT"></h2><p id="askM"></p><div class="row"><button class="btn ghost" id="askNo">Cancel</button><button class="btn danger" id="askOk">OK</button></div></div></div>
 <div class="modal top" id="prm"><div class="box"><h2 id="prmT"></h2><input id="prmIn" spellcheck="false" autocomplete="off"><div class="row"><span></span><div><button class="btn ghost" id="prmNo">Cancel</button> <button class="btn" id="prmOk">OK</button></div></div></div></div>
 <div class="ctx" id="ctx"></div>
+<div class="busy" id="busy"><i></i><span id="busyTxt">Working…</span></div>
 <div class="toast" id="toast"></div>
+<script src="profiles.js"></script>
+<script src="shrink.js"></script>
+<script src="queue.js"></script>
 <script>
 // ---- bridge: real Electron (window.api from preload.ts) or browser preview ----
 const A=window.api;
@@ -298,11 +347,61 @@ const enqueue=f=>{q=q.then(f).catch(e=>{console.error(e);toast('Something went w
 let tt;function toast(m,ms=2800){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),ms)}
 
 // Make the game's mods folder match the active profile (enabled = copied in, disabled = removed)
+// The copying happens in the background (the app is never blocked), the little spinner shows it is working
+// and Play waits until the game folder is ready.
+let syncing=0;const syncWait=new Set();
+function setBusy(n,label){syncing=Math.max(0,syncing+n);const on=syncing>0;
+  document.body.classList.toggle('syncing',on);if(label)$('#busyTxt').textContent=label;
+  const pb=$('#playBtn');if(pb){pb.disabled=on;pb.title=on?'Wait until MODit has finished applying the profile':'Start the game (right-click to choose a different program)'}}
+async function runSync(gid,md,d,label){
+  setBusy(1,label);
+  try{noteBackup(await inv('sync_profile',{game:gid,modsDir:md,profile:d.active,state:d}))}
+  finally{setBusy(-1)}}
 function sync(){
   if(!inv||!game())return;
   const gid=S.game,md=modsDir();
-  enqueue(()=>{const d=S.data[gid];return d&&inv('sync_profile',{game:gid,modsDir:md,profile:d.active,state:d}).then(noteBackup)});
+  if(syncWait.has(gid))return; // one is already waiting: it reads the newest state when it starts
+  syncWait.add(gid);
+  enqueue(()=>{syncWait.delete(gid);const d=S.data[gid];return d&&runSync(gid,md,d,'Applying "'+d.active+'"…')});
 }
+const BIG=2*1024*1024*1024; // switching that has to copy more than this asks first
+// Switch the active profile. What has to be copied is what is on in the new profile but not in the current one.
+async function switchCost(name){ // bytes that switching to `name` has to copy into the game
+  const d=cur();if(!inv||!d)return 0;
+  const need=d.mods.filter(m=>Profiles.isOn(d,name,m.id)&&!Profiles.isOn(d,d.active,m.id)).map(m=>m.id);
+  if(!need.length)return 0;
+  try{const sz=await inv('mod_sizes',{ids:need});return Object.values(sz).reduce((a,b)=>a+b,0)}catch(_){return 0}}
+async function switchProfile(name){
+  const d=cur(),g=game();if(!d||!g||name===d.active||!(name in d.profiles))return;
+  if(inv){
+    {
+      const total=await switchCost(name);
+      if(total>BIG&&!await askUi({title:'This may take a while',msg:'Switching to "'+name+'" copies about '+fmt(total)+' of mods into the game. MODit stays usable meanwhile, so you can keep browsing and downloading, but wait for it to finish before you start the game.',ok:'Switch'}))return}}
+  if(cur()!==d||d.active===name||!(name in d.profiles))return; // changed while we measured or asked
+  d.active=name;save();render();sync()}
+// Delete a profile after asking. The mods stay installed; if it was the active profile, MODit switches to Default.
+async function deleteProfile(name){
+  const d=cur();if(!d)return;
+  const why=Profiles.cannotDelete(d,name);if(why){toast(why);return}
+  const to=Profiles.fallbackFor(d,name),wasActive=d.active===name;
+  let msg='Delete the profile "'+name+'"? Its mods stay installed, only this profile\'s on/off settings are removed.';
+  if(wasActive){
+    msg+=' It is the profile you are using, so MODit will switch to "'+to+'".';
+    const total=await switchCost(to);
+    if(total>BIG)msg+=' That switch copies about '+fmt(total)+' into the game and may take a while. MODit stays usable meanwhile.'}
+  if(!await askUi({title:'Delete profile?',msg,ok:'Delete',danger:true}))return;
+  if(cur()!==d||!(name in d.profiles))return; // changed while the question was open
+  const r=Profiles.deleteProfile(d,name);if(!r.ok){toast(r.error);return}
+  save();render();$('#dd').classList.remove('open');
+  if(r.switchedTo)sync();
+  toast('Deleted "'+name+'"'+(r.switchedTo?'. Switched to "'+r.switchedTo+'"':''))}
+async function renameProfile(old){
+  const d=cur();if(!d)return;
+  const v=await promptUi({title:'Rename profile',value:old,ok:'Rename'});if(v===null)return;
+  const r=Profiles.renameProfile(d,old,v);
+  if(!r.ok){toast(r.error);return}
+  if(v.trim()===old)return;
+  save();render();$('#dd').classList.remove('open');toast('Renamed to "'+v.trim()+'"')}
 
 // ---- render ----
 function render(){
@@ -317,36 +416,73 @@ function render(){
     $('#profGrid').innerHTML='<div class="empty">Add a game first, then create profiles</div>';
     $('#ddMenu').innerHTML='';$('#ddLabel').textContent='';return}
   $('#ddLabel').textContent=d.active;
-  $('#ddMenu').innerHTML=`<div class="ddi new" id="ddNew"><span>＋</span><span>New profile</span></div><div class="ddnew" id="ddForm"><input id="ddIn" placeholder="Profile name"><button class="btn" id="ddMk">Add</button></div>`+Object.keys(d.profiles).map(p=>`<div class="ddi ${p==d.active?'on':''}" data-pf="${esc(p)}">${esc(p)}</div>`).join('');
-  const en=d.profiles[d.active]||{};
-  $('#grid').innerHTML=d.mods.length?d.mods.map((m,i)=>`<div class="card mod ${en[m.id]?'on':''}" data-id="${esc(m.id)}" style="animation-delay:${i*50}ms">
-   <button class="rm" data-rm="${esc(m.id)}" title="Remove mod">✕</button><div class="thumb">${m.emoji||'📦'}</div><div class="row"><div><h3>${esc(m.name)}</h3><small>${esc(m.root||'Mods')}</small></div>
-   <div class="pill ${en[m.id]?'on':''}"></div></div></div>`).join(''):'<div class="empty">No mods yet.<br>Click <b>Add mod</b> or drop an archive anywhere.</div>';
-  $('#profGrid').innerHTML=Object.keys(d.profiles).map(p=>`<div class="card"><div class="row"><div><h3>${esc(p)}</h3><small>${Object.values(d.profiles[p]).filter(Boolean).length} mods on</small></div>
-   <button class="btn ${p==d.active?'':'ghost'}" data-p="${esc(p)}" title="${p==d.active?'Turn off all mods in this profile':'Switch to this profile'}">${p==d.active?'Active':'Use'}</button></div></div>`).join('');
+  $('#ddMenu').innerHTML=`<div class="ddi new" id="ddNew"><span>＋</span><span>New profile</span></div><div class="ddnew" id="ddForm"><input id="ddIn" placeholder="Profile name"><button class="btn" id="ddMk">Add</button></div>`+Object.keys(d.profiles).map(p=>`<div class="ddi ${p==d.active?'on':''}" data-pf="${esc(p)}"><span class="pn">${esc(p)}</span><span class="ren" data-ren="${esc(p)}" title="Rename this profile">✎</span>${Profiles.cannotDelete(d,p)?'':`<span class="ren" data-dp="${esc(p)}" title="Delete this profile">✕</span>`}</div>`).join('');
+  const on=id=>Profiles.isOn(d,d.active,id);
+  $('#grid').innerHTML=d.mods.length?d.mods.map((m,i)=>`<div class="card mod ${on(m.id)?'on':''}" data-id="${esc(m.id)}" style="animation-delay:${i*50}ms">
+   <button class="rm" data-rm="${esc(m.id)}" title="Delete this mod">${TRASH}</button><div class="thumb" data-t="${m.thumb||''}">${thumbHtml_(m)}</div><div class="row"><div><h3>${esc(m.name)}</h3><small>${esc(modLabel(m))}</small></div>
+   <div class="pill ${on(m.id)?'on':''}"></div></div></div>`).join(''):'<div class="empty">No mods yet.<br>Click <b>Add mod</b> or drop an archive anywhere.</div>';
+  $('#profGrid').innerHTML=Object.keys(d.profiles).map(p=>`<div class="card" data-pc="${esc(p)}"><div class="row"><div><h3>${esc(p)}</h3><small class="pcnt">${Profiles.countOn(d,p)} mods on</small></div>
+   <div class="acts"><button class="btn ghost sm" data-rn="${esc(p)}" title="Rename this profile">Rename</button>${Profiles.cannotDelete(d,p)?'':`<button class="btn ghost sm" data-dp="${esc(p)}" title="Delete this profile">Delete</button>`}<button class="btn ${p==d.active?'':'ghost'}" data-p="${esc(p)}" title="${p==d.active?'Turn off all mods in this profile':'Switch to this profile'}">${p==d.active?'Active':'Use'}</button></div></div></div>`).join('');
 }
+
+// ---- updating without a full refresh ----
+// Switching a mod, renaming its title, changing its thumbnail or counting a profile's mods touches only what changed:
+// the other cards are not rebuilt (so they do not flash or restart their animation).
+const cssId=s=>CSS.escape(String(s));
+function patchMod(id){
+  const d=cur(),m=d&&d.mods.find(x=>x.id===id);
+  const el=m&&document.querySelector('#grid .mod[data-id="'+cssId(id)+'"]');
+  if(!d||!m||!el){render();return}                       // the card is not on screen (yet): build everything once
+  const on=Profiles.isOn(d,d.active,id);
+  el.classList.toggle('on',on);el.querySelector('.pill').classList.toggle('on',on);
+  const h=el.querySelector('h3');if(h.textContent!==m.name)h.textContent=m.name;
+  const sm=el.querySelector('small'),lab=modLabel(m);if(sm.textContent!==lab)sm.textContent=lab;
+  const th=el.querySelector('.thumb'),t=String(m.thumb||'');
+  if(th.dataset.t!==t){th.dataset.t=t;th.innerHTML=thumbHtml_(m)}}
+function patchMods(ids){ids.forEach(patchMod)}
+function patchAllMods(){const d=cur();if(!d)return;d.mods.forEach(m=>patchMod(m.id))}
+// "N mods on" of every profile card
+function patchCounts(){
+  const d=cur();if(!d)return;
+  document.querySelectorAll('#profGrid [data-pc]').forEach(c=>{
+    const p=c.dataset.pc;if(!(p in d.profiles))return;
+    const s=c.querySelector('.pcnt'),t=Profiles.countOn(d,p)+' mods on';if(s&&s.textContent!==t)s.textContent=t})}
+
+// ---- mod thumbnails ----
+// The first picture in a mod's archive is shrunk to a small JPEG kept in MODit's own folder (never in the game).
+const THUMB_MAX=30*1024;
+const COVER_MAX=100*1024; // a cover is at most this big
+const TRASH='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg>';
+const thumbHtml_=m=>m.thumb?`<img alt="" draggable="false" src="modit://thumb/${encodeURIComponent(S.game)}/${encodeURIComponent(m.id)}.jpg?v=${m.thumb}" onerror="this.remove()">`:(m.emoji||'📦');
+async function saveThumbFor(gid,id,bytes){
+  const jpg=await Shrink.toJpeg(bytes,THUMB_MAX,512);
+  await inv('save_thumb',{game:gid,id,bytes:jpg});
+  const m=S.data[gid]&&S.data[gid].mods.find(x=>x.id===id);if(m)m.thumb=Date.now()}
 
 // ---- mods + profiles ----
 document.addEventListener('click',e=>{
   const d=cur();
   const rmb=e.target.closest('[data-rm]');if(rmb){removeMod(rmb.dataset.rm);return}
   const cd=e.target.closest('.mod');
-  if(cd&&d){const p=d.profiles[d.active];p[cd.dataset.id]=!p[cd.dataset.id];cd.classList.toggle('on');cd.querySelector('.pill').classList.toggle('on');save();sync();render()}
+  if(cd&&d){const id=cd.dataset.id;Profiles.toggle(d,d.active,id);save();sync();patchMod(id);patchCounts()} // only the active profile's entry changes, and only this card is redrawn
+  const rn=e.target.closest('[data-rn]');if(rn&&d){renameProfile(rn.dataset.rn);return}
+  const dp=e.target.closest('[data-dp]');if(dp&&d){deleteProfile(dp.dataset.dp);return}
   const pb=e.target.closest('[data-p]');if(pb&&d){
-    if(pb.dataset.p===d.active){d.profiles[d.active]={};toast('All mods turned off in '+d.active)} // "Active" = switch everything off
-    else d.active=pb.dataset.p;
-    save();render();sync()}
+    if(pb.dataset.p===d.active){Profiles.clearProfile(d,d.active);toast('All mods turned off in '+d.active);save();patchAllMods();patchCounts();sync()} // "Active" = switch everything off
+    else switchProfile(pb.dataset.p)}
   const n=e.target.closest('.nav');if(n){if(n.dataset.v==='browser'){askBrowser();return}showView(n.dataset.v)}
   if(e.target.closest('#emptyAdd'))pickGame();
 });
 document.addEventListener('click',e=>{const t=e.target,d=cur();
  if(t.closest('#ddBtn')){$('#dd').classList.toggle('open');return}
  if(t.closest('#ddNew')){$('#ddForm').classList.add('show');$('#ddIn').focus();return}
- if(t.closest('#ddMk')){const v=$('#ddIn').value.trim();if(d&&v&&!d.profiles[v]){d.profiles[v]={};d.active=v;save();render();sync();$('#dd').classList.remove('open')}return}
- const pf=t.closest('[data-pf]');if(pf&&d){d.active=pf.dataset.pf;save();render();$('#dd').classList.remove('open');sync();return}
+ if(t.closest('#ddMk')){const v=$('#ddIn').value.trim();if(d&&Profiles.createProfile(d,v)){d.active=v;save();render();sync();$('#dd').classList.remove('open')}return}
+ const rn=t.closest('[data-ren]');if(rn&&d){renameProfile(rn.dataset.ren);return}
+ const dp=t.closest('[data-dp]');if(dp&&d){deleteProfile(dp.dataset.dp);return}
+ const pf=t.closest('[data-pf]');if(pf&&d){$('#dd').classList.remove('open');switchProfile(pf.dataset.pf);return}
  if(!t.closest('#dd'))$('#dd').classList.remove('open')});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='ddIn')$('#ddMk').click()});
-$('#mkProf').onclick=()=>{const d=cur(),v=$('#newProf').value.trim();if(d&&v&&!d.profiles[v]){d.profiles[v]={};d.active=v;$('#newProf').value='';save();render();sync()}};
+$('#mkProf').onclick=()=>{const d=cur(),v=$('#newProf').value.trim();if(d&&Profiles.createProfile(d,v)){d.active=v;$('#newProf').value='';save();render();sync()}};
 
 // ---- games ----
 const coverImg=g=>g.cover?`<img alt="" draggable="false" loading="lazy" src="modit://cover/${encodeURIComponent(g.cover)}" onload="this.classList.add('ok')" onerror="this.remove()">`:'';
@@ -367,13 +503,13 @@ function patchThumb(g){const el=document.querySelector('#gGrid .gcard[data-g="'+
 function drawGames(){setTimeout(loadGameIcons,0);
  $('#gGrid').innerHTML=S.games.length?S.games.map(g=>`<div class="card gcard ${g.id==S.game?'cur':''}" data-g="${esc(g.id)}"><button class="rm" data-rg="${esc(g.id)}" title="Remove game">✕</button><div class="thumb">${thumbHtml(g)}</div><h3>${esc(g.name)}</h3><small>${g.id==S.game?'Current':'Switch'}</small></div>`).join(''):'<div class="empty">No games yet. Press Add Game.</div>'}
 $('#gameBtn').onclick=()=>{if(!S.games.length){pickGame();return}drawGames();$('#gm').classList.add('on')};
-function addGame(name,path,modsDir,modFolder){
+function addGame(name,path,modsDir,modFolder,matchedId,customPath){
  const old=S.games.find(g=>modsDir&&g.modsDir&&g.modsDir.toLowerCase()===modsDir.toLowerCase());
  if(old){selectGame(old.id);toast(old.name+' is already added');return}
  const id='g'+Date.now().toString(36);
- const g={id,name,path,modsDir,modFolder,exe:'',cover:null,coverCustom:false},data={mods:[],profiles:{Default:{}},active:'Default'};
+ const g={id,name,path,modsDir,modFolder,exe:'',cover:null,coverCustom:false,matchedId:matchedId||null,customPath:!!customPath},data={mods:[],profiles:{Default:{}},active:'Default'};
  S.games.push(g);S.data[id]=data;
- if(inv)inv('add_game',{rec:g,data}).catch(e=>failToast(e)); // the cover is looked up in the background a few seconds later
+ if(inv)inv('add_game',{rec:g,data}).then(()=>promptReqs(false)).catch(e=>failToast(e)); // the cover is looked up in the background a few seconds later
  selectGame(id)}
 function selectGame(id){S.game=id;dlFilter='';if(typeof fillFilter==='function'){fillFilter();drawDl(dlAll)}save();render();drawGames();$('#gm').classList.remove('on');sync()}
 // One folder is all it takes: MODit finds the game's Paks folder (and its Mods, ~mods and LogicMods) itself.
@@ -385,14 +521,14 @@ async function pickGame(){
    if(!r){ // not in the database and not an Unreal game: let the user point at the mods folder
     if(!await confirmBox("MODit doesn't know this game yet.\n\nChoose the folder its mods go in yourself?"))return;
     const m=await T.dialog.open({directory:true,title:'Select the folder mods are installed to'});if(!m)return;
-    addGame(base(String(p)),String(p),String(m),'');return}
-   addGame(r.name,String(p),r.paks,r.modFolder);
+    addGame(base(String(p)),String(p),String(m),'',null,true);return}
+   addGame(r.name,String(p),r.paks,r.modFolder,r.matched||null,false);
   }catch(err){toast('Could not add the game: '+(err&&err.message||err),6000)}}
  else $('#gDir').click()}
 const confirmBox=m=>T&&T.dialog&&T.dialog.ask?T.dialog.ask(m,{title:'MODit',kind:'warning'}):Promise.resolve(confirm(m));
 async function removeMod(id){
  const d=cur(),g=game(),m=d&&d.mods.find(x=>x.id===id);if(!m)return;
- if(!await confirmBox(`Remove "${m.name}"? It will be taken out of the game and deleted from MODit.`))return;
+ if(!await confirmBox(`Delete "${m.name}"? It will be taken out of the game and deleted from MODit.`))return;
  d.mods=d.mods.filter(x=>x.id!==id);Object.values(d.profiles).forEach(p=>delete p[id]);
  save();render();
  if(inv)enqueue(()=>inv('remove_mod',{game:g.id,id,root:m.root,kind:m.kind,modsDir:g.modsDir}))}
@@ -438,13 +574,28 @@ function openCtx(x,y,id){
   const r=ctx.getBoundingClientRect();
   ctx.style.left=Math.max(8,Math.min(x,innerWidth-r.width-8))+'px';
   ctx.style.top=Math.max(8,Math.min(y,innerHeight-r.height-8))+'px'}
-const closeCtx=()=>{ctx.classList.remove('on');ctxId=null};
-document.addEventListener('contextmenu',e=>{e.preventDefault();const c=e.target.closest('#gGrid .gcard');if(c)openCtx(e.clientX,e.clientY,c.dataset.g);else closeCtx()});
+let ctxMod=null;
+const closeCtx=()=>{ctx.classList.remove('on');ctxId=null;ctxMod=null};
+function openModCtx(x,y,id){
+  const d=cur(),m=d&&d.mods.find(v=>v.id===id);if(!m)return;ctxMod=id;ctxId=null;
+  const others=Object.keys(d.profiles).filter(p=>p!==d.active);
+  ctx.innerHTML='<button data-m="rename">Rename title</button><button data-m="folder">Show in folder</button><button data-m="thumb">Set thumbnail</button>'+(m.thumb?'<button data-m="rmthumb">Remove thumbnail</button>':'')+(m.pack?'<button data-m="chars">Choose characters</button>':'')
+    +(others.length?'<hr>'+others.map(p=>`<button data-mv="${esc(p)}">Enable on ${esc(p)}</button>`).join(''):'');
+  ctx.classList.add('on');
+  const r=ctx.getBoundingClientRect();
+  ctx.style.left=Math.max(8,Math.min(x,innerWidth-r.width-8))+'px';
+  ctx.style.top=Math.max(8,Math.min(y,innerHeight-r.height-8))+'px'}
+document.addEventListener('contextmenu',e=>{e.preventDefault();const c=e.target.closest('#gGrid .gcard'),mc=e.target.closest('#grid .mod');
+  if(c)openCtx(e.clientX,e.clientY,c.dataset.g);else if(mc)openModCtx(e.clientX,e.clientY,mc.dataset.id);else closeCtx()});
 document.addEventListener('mousedown',e=>{if(!e.target.closest('#ctx'))closeCtx()},true);
 addEventListener('blur',closeCtx);addEventListener('resize',closeCtx);
 document.addEventListener('wheel',closeCtx,{passive:true});
 addEventListener('keydown',e=>{if(e.key==='Escape')closeCtx()});
 ctx.onclick=async e=>{
+  const mb=e.target.closest('[data-m]');
+  if(mb){const id=ctxMod;closeCtx();return modAction(mb.dataset.m,id)}
+  const mv=e.target.closest('[data-mv]');
+  if(mv){const id=ctxMod,to=mv.dataset.mv;closeCtx();return moveModTo(id,to)}
   const b=e.target.closest('[data-c]');if(!b)return;
   const g=S.games.find(v=>v.id===ctxId);closeCtx();if(!g)return;
   switch(b.dataset.c){
@@ -463,11 +614,58 @@ async function pickCover(g){
   if(!T){toast('Choosing a cover only works in the app');return}
   const p=await T.dialog.open({title:'Choose a cover image for '+g.name,filters:[{name:'Images',extensions:['png','jpg','jpeg','webp','bmp']}]});
   if(!p)return;
-  try{g.cover=await inv('set_cover',{id:g.id,path:String(p)});g.coverCustom=true;patchThumb(g)}catch(err){failToast(err)}}
+  try{ // any picture format is read here, shrunk to a JPEG under 100 KB, and the app stores that
+    const r=await inv('read_image',{path:String(p)});
+    const jpg=await Shrink.toJpeg(r.data,COVER_MAX,1024);
+    g.cover=await inv('set_cover',{id:g.id,bytes:jpg});g.coverCustom=true;patchThumb(g)}catch(err){failToast(err)}}
 async function renameGame(g){
   const v=await promptUi({title:'Rename game',value:g.name,ok:'Rename'});if(v===null)return;
   const n=v.trim();if(!n||n===g.name)return;
   try{if(inv)await inv('rename_game',{id:g.id,name:n});g.name=n;render();drawGames()}catch(err){failToast(err)}}
+
+// ---- right-click on a mod: rename the title, show its folder, change a pack's characters ----
+function modLabel(m){
+  if(m.pack)return 'Pack · '+m.pack.selected.length+' of '+m.pack.all.length;
+  if(m.target)return m.target==='*auto'?'By file name':m.target==='*root'?'Game folder':m.target;
+  return m.kind==='overlay'?'Game files':(m.root||'Mods')}
+async function modAction(a,id){
+  const d=cur(),m=d&&d.mods.find(v=>v.id===id);if(!m)return;
+  if(a==='rename'){ // only the title you see changes, never the files
+    const v=await promptUi({title:'Rename title',value:m.name,ok:'Rename'});if(v===null)return;
+    const n=v.trim();if(!n||n===m.name)return;m.name=n;save();patchMod(m.id);return}
+  if(a==='folder'){if(!inv)return;
+    inv('show_mod',{id:m.id,on:Profiles.isOn(d,d.active,m.id),modFolder:m.root||''}).catch(failToast);return}
+  if(a==='thumb'){ // choose your own picture, shrunk the same way
+    if(!T||!inv){toast('Choosing a thumbnail only works in the app');return}
+    const f=await T.dialog.open({title:'Choose a thumbnail for '+m.name,filters:[{name:'Pictures',extensions:['png','jpg','jpeg','webp','bmp','gif']}]});if(!f)return;
+    try{const r=await inv('read_image',{path:String(f)});await saveThumbFor(S.game,m.id,r.data);save();patchMod(m.id)}catch(err){failToast(err)}return}
+  if(a==='rmthumb'){
+    try{if(inv)await inv('remove_thumb',{id:m.id});delete m.thumb;save();patchMod(m.id)}catch(err){failToast(err)}return}
+  if(a==='chars')return editPack(m)}
+// "Enable on <profile>": the mod moves there. It goes off in the profile you are on and on in the one you pick.
+function moveModTo(id,to){
+  const d=cur(),m=d&&d.mods.find(v=>v.id===id);if(!m)return;
+  const from=d.active;if(!Profiles.moveMod(d,id,from,to))return;
+  save();patchMod(id);patchCounts();sync();toast('"'+m.name+'" moved from '+from+' to '+to)}
+async function editPack(m){
+  const g=game(),d=cur();if(!g||!d||!inv||!m.pack)return;
+  const sel=await askCharacters('Characters for "'+m.name+'"',m.pack.all,m.pack.selected,'Save');
+  if(!sel)return;
+  return enqueue(async()=>{
+    const gid=g.id,md=modsDir();
+    const before=new Set(S.data[gid].mods.map(x=>x.id));
+    let r=await inv('edit_pack',{id:m.id,chars:sel,state:S.data[gid]});
+    if(r&&r.missing){ // the archive was deleted from Downloads
+      if(!T||!await askUi({title:'The pack file is gone',msg:'MODit needs the original file of "'+m.name+'" to change its characters, but it was deleted. Choose the file again?',ok:'Choose file'}))return;
+      const f=await T.dialog.open({title:'Select '+m.name+' again',filters:[{name:'Archives',extensions:['zip','7z','rar']}]});if(!f)return;
+      r=await inv('edit_pack',{id:m.id,chars:sel,archive:String(f),state:S.data[gid]})}
+    if(r&&r.empty){toast('Pick at least one character');return}
+    if(r&&r.state&&S.data[gid]){const live=Profiles.applyInstall(S.data[gid],r.state,before,S.data[gid].active);save(gid);render();
+      await runSync(gid,md,live,'Applying "'+live.active+'"…');
+      inv('list_downloads').then(drawDl).catch(()=>{});toast('Pack updated')}})}
+// the pack (if any) that was installed from this downloaded archive
+const normP=p=>String(p||'').replace(/\\/g,'/').toLowerCase();
+function packOwning(d){for(const gid of Object.keys(S.data))for(const m of (S.data[gid].mods||[]))if(m.pack&&m.pack.archive&&!m.pack.stored&&normP(m.pack.archive)===normP(d.path))return m;return null}
 
 // ---- hold left click and drag to scroll (a drag never counts as a click) ----
 (()=>{let st=null;
@@ -522,7 +720,7 @@ $('#sCancel').onclick=()=>$('#siteModal').classList.remove('on');
 
 // ---- folders ----
 const failToast=e=>toast(String(e&&e.message||e).replace(/^Error invoking remote method '[^']*': (Error: )?/,''),5000);
-$('#openMods').onclick=()=>{if(!inv)return;if(!modsDir()){toast('Mods folder unknown');return}inv('open_folder',{path:modsDir(),sub:modFolder()}).catch(failToast)};
+$('#openMods').onclick=()=>{if(!inv)return;if(!modsDir()){toast('Mods folder unknown');return}inv('open_mods_folder',{path:modsDir(),sub:modFolder()}).catch(failToast)};
 $('#openGame').onclick=()=>{const g=game();if(!inv||!g)return;if(!g.path){toast('Game folder unknown');return}inv('open_folder',{path:g.path}).catch(failToast)};
 
 // ---- downloads ----
@@ -554,10 +752,12 @@ $('#dlList').onclick=async e=>{const b=e.target.closest('[data-dl]');if(!b||!inv
   const id=b.closest('.dl').dataset.id,d=dlData.find(x=>x.id===id);if(!d)return;
   const a=b.dataset.dl;
   if(a=='install'){
-    // a mod downloaded for another game is probably not meant for this one
-    if(d.gameId&&d.gameId!==S.game&&!await confirmBox('This was downloaded for '+(d.gameName||'another game')+', but '+(game()?game().name:'no game')+' is selected.\n\nInstall it anyway?'))return;
-    handlePaths([d.path])}
-  else inv(a=='cancel'?'cancel_download':a=='show'?'show_download':'remove_download',{dlId:id}).catch(failToast)};
+    // a mod downloaded for another game is probably not meant for this one: handlePaths asks first (in the install queue)
+    handlePaths([d.path],{id:d.gameId,name:dlGame(d)})}
+  else{
+    if(a=='remove'){const own=packOwning(d); // a pack still reads this file when its characters change
+      if(own&&!await askUi({title:'Delete this archive?',msg:'This is the archive of the pack "'+own.name+'". Deleting it frees the disk space for good, but some features, like choosing other characters for the pack, will need you to download or add the files again. The characters already installed keep working. Delete anyway?',ok:'Delete anyway',danger:true}))return}
+    inv(a=='cancel'?'cancel_download':a=='show'?'show_download':'remove_download',{dlId:id}).catch(failToast)}};
 $('#dlDir').onclick=()=>{if(inv)inv('open_downloads_dir',{game:S.games.some(g=>g.id===dlF())?dlF():''}).catch(failToast)};
 $('#dlBtn').onclick=()=>$('#dlDd').classList.toggle('open');
 $('#dlMenu').onclick=e=>{const o=e.target.closest('[data-df]');if(!o)return;dlFilter=o.dataset.df;$('#dlDd').classList.remove('open');fillFilter();drawDl(dlAll)};
@@ -571,6 +771,7 @@ function showView(v){
   document.body.classList.toggle('v-settings',v==='settings');
   if(v==='settings')drawSettings();
   if(v==='backups')drawBackups();
+  if(v==='requirements')drawReqs();
   if(v==='downloads'){fillFilter();if(inv)inv('list_downloads').then(drawDl).catch(()=>{})}}
 // the Browser section always asks first: a mod for the wrong game can break an install
 function askBrowser(){
@@ -597,8 +798,23 @@ $('#warnOk').onclick=()=>{
 $('#warnNo').onclick=closeWarn;
 addEventListener('keydown',e=>{if(e.key==='Escape')closeWarn()});
 
+// ---- appearance ----
+let THEMES=null;
+async function drawThemes(){
+  const box=$('#themes');
+  if(!inv){box.innerHTML='<small>Themes are only available in the app.</small>';return}
+  if(!THEMES){try{THEMES=await inv('list_themes')}catch(e){failToast(e);return}}
+  const cur=S.settings.theme||'glass';
+  box.innerHTML=THEMES.map(t=>`<button class="tcard ${t.id===cur?'on':''}" data-t="${esc(t.id)}"><div class="tsw" style="background:${esc(t.swatch.bg)}"><i class="c1" style="background:${esc(t.swatch.card)}"></i><i class="c2" style="background:${esc(t.swatch.a)}"></i><i class="c3" style="background:${esc(t.swatch.b)}"></i></div><b>${esc(t.label)}</b><small>${esc(t.note)}</small></button>`).join('')}
+$('#themes').onclick=async e=>{
+  const b=e.target.closest('[data-t]');if(!b||!inv)return;
+  const id=b.dataset.t;if(id===(S.settings.theme||'glass'))return;
+  S.settings.theme=id;drawThemes();
+  try{await inv('set_setting',{key:'theme',value:id})}catch(err){failToast(err)}};
+
 // ---- settings ----
 function drawSettings(){
+  drawThemes();
   $('#sgKey').value=S.settings.sgdbKey||'';
   $('#setWarn').checked=!S.settings.skipBrowserWarn;
   const n=S.games.length,have=S.games.filter(g=>g.cover).length;
@@ -622,6 +838,7 @@ if(A){
   A.onToast(m=>toast(m,5000));
   A.onCover((id,file)=>{const g=S.games.find(x=>x.id===id);if(!g)return;g.cover=file;patchThumb(g);if($('#settings').classList.contains('on'))drawSettings()});
   A.onGoto(v=>showView(v));
+  A.onInstall((p,gid)=>{const g=S.games.find(x=>x.id===gid);handlePaths([p],{id:gid,name:g?g.name:''})}); // Install button in the browser's download panel: the questions appear in the browser window
   A.onDownloaded((p,gid)=>{
     if(!$('#autoInst').checked){toast('Downloaded '+base(p));return}
     // never auto-install into a game other than the one the download was started for
@@ -630,44 +847,206 @@ if(A){
   inv('list_downloads').then(drawDl).catch(()=>{});
 }else drawDl([]);
 
+// ---- requirements (e.g. AutoLink for Dead or Alive 5) ----
+let reqCache=[];
+async function reqCheck(){if(!inv||!game())return[];try{const r=await inv('check_requirements');reqCache=(r&&r.items)||[];return reqCache}catch(_){return[]}}
+function openReq(m){if(m.url)openSite(m.url);
+  toast('Download \"'+(m.file||m.name)+'\". MODit installs it when the download finishes.',9000)}
+// asks to install what is missing; returns true when something was missing
+async function promptReqs(blocked,list){
+  const miss=(list||await reqCheck()).filter(x=>!x.installed);if(!miss.length)return false;
+  const g=game(),m=miss[0];if(!g)return false;
+  const msg=blocked?"You can't install mods for "+g.name+' until '+m.name+' is installed.':g.name+' needs '+m.name+' before any mod can be installed.';
+  const ok=await askUi({title:blocked?'Install '+m.name+' first':m.name+' is not installed',msg:msg+(m.url?' Click Install now to open its download page, then download \"'+(m.file||m.name)+'\". MODit installs it for you when the download finishes.':''),ok:m.url?'Install now':'OK'});
+  if(ok&&m.url)openReq(m);
+  return true}
+async function drawReqs(){
+  const box=$('#reqList'),g=game();
+  if(!g){box.innerHTML='<div class="empty">Add a game first</div>';return}
+  if(!inv){box.innerHTML='<div class="empty">Requirements are only available in the app</div>';return}
+  const items=await reqCheck();
+  box.innerHTML=items.length?items.map(x=>`<div class="card"><div class="row"><div><h3>${esc(x.name)}</h3><small style="color:${x.installed?'var(--ok,#7ee0a0)':'var(--bad,#ff8a8a)'}">${x.installed?'Installed':'Not installed'}</small>${x.note?'<small style="display:block;margin-top:6px">'+esc(x.note)+'</small>':''}</div>${x.installed?'':'<button class="btn" data-rq="'+esc(x.id)+'">Install</button>'}</div></div>`).join(''):'<div class="empty">'+esc(g.name)+' has no requirements.</div>'}
+$('#reqList').onclick=e=>{const b=e.target.closest('[data-rq]');if(!b)return;const m=reqCache.find(x=>x.id===b.dataset.rq);if(m)openReq(m)};
+$('#reqRe').onclick=drawReqs;
+
 // ---- install flow ----
 // Adding a mod stores it in MODit's library and switches it on for the active profile,
 // which copies it into the game's mods folder.
 let pending=null,picks=new Set();
-function openPicker(zips,path){pending={zips,path};picks=new Set();drawPicker();$('#modal').classList.add('on')}
+const profNow=()=>{const d=cur();return d?d.active:''};
+const profNames=()=>{const d=cur();return d?Object.keys(d.profiles):[]};
+// "Profile: SFW" at the top of an install dialog; with several profiles it is a list to choose from (pr.v = the choice)
+function profPick(el,pr){
+  if(!pr||!pr.v){el.innerHTML='';return}
+  const ps=profNames();
+  el.innerHTML=ps.length>1?'Install to profile: <div class="dd pdd"><button class="btn ghost pbtn"><span>'+esc(pr.v)+'</span> ▾</button><div class="ddMenu">'+ps.map(p=>'<div class="ddi nm'+(p===pr.v?' on':'')+'" data-pp="'+esc(p)+'">'+esc(p)+'</div>').join('')+'</div></div>':'Profile: <b>'+esc(pr.v)+'</b>';
+  const dd=el.querySelector('.pdd');if(!dd)return;
+  dd.onclick=e=>{
+    if(e.target.closest('.pbtn')){dd.classList.toggle('open');return}
+    const i=e.target.closest('[data-pp]');if(!i)return;
+    pr.v=i.dataset.pp;dd.querySelector('.pbtn span').textContent=pr.v;dd.querySelectorAll('.ddi').forEach(x=>x.classList.toggle('on',x===i));dd.classList.remove('open')}}
+document.addEventListener('mousedown',e=>{document.querySelectorAll('.pdd.open').forEach(d=>{if(!d.contains(e.target))d.classList.remove('open')})});
+// "Who is X for? (2/3)": the counter goes in the corner badge, not in the title
+function setTitle(h,tag,text){const m=/^([\s\S]*?)\s*\((\d+\/\d+)\)\s*$/.exec(text||'');h.textContent=m?m[1]:(text||'');tag.textContent=m?m[2]:'';h.closest('.box').classList.toggle('tagged',!!m)}
+function openPicker(zips,path){pending={zips,path,pr:{v:profNow()}};picks=new Set();profPick($('#mProf'),pending.pr);drawPicker();$('#modal').classList.add('on')}
 function drawPicker(){$('#mList').innerHTML=pending.zips.map(z=>`<div class="item ${picks.has(z)?'on':''}" data-z="${esc(z)}"><div class="chk">${picks.has(z)?'✓':''}</div>${esc(z.replace(/\.zip$/i,''))}</div>`).join('')}
 $('#mList').onclick=e=>{const i=e.target.closest('.item');if(!i)return;picks.has(i.dataset.z)?picks.delete(i.dataset.z):picks.add(i.dataset.z);drawPicker()};
 $('#mAll').onclick=()=>{pending.zips.forEach(z=>picks.add(z));drawPicker()};
 $('#mCancel').onclick=()=>$('#modal').classList.remove('on');
-$('#mOk').onclick=()=>{$('#modal').classList.remove('on');if(picks.size)install('install_archive',{path:pending.path,picks:[...picks]})};
+$('#mOk').onclick=async()=>{$('#modal').classList.remove('on');if(!picks.size)return;
+  let target;
+  if(inv){const st=await inv('autolink_status').catch(()=>null); // Dead or Alive 5: say who the mods are for
+    if(st&&st.supported){target=await askTarget('Who are these mods for?',{characters:st.characters,multi:true},pending.pr);if(!target)return}}
+  install('install_archive',{path:pending.path,picks:[...picks],target},pending.pr.v)};
 
-function install(cmd,args){
+// ---- "who is this mod for?" (AutoLink games): shown in the browser window when the download came from there ----
+// ---- character list logic shared by the in-app dialog and the browser overlay ----
+// single: one choice. multi: many (Select all / Unselect all). Typing selects by name:
+// the exact name first (hayate before hayate_boss), else the first name that starts with the text.
+function PKcore(o){
+  const items=o.items||[],multi=!!o.multi,init=Array.isArray(o.selected)?o.selected:(o.selected?[o.selected]:[]);
+  const low=s=>String(s).toLowerCase();
+  let q='',cand=null,from='init',chosen=new Set(init);
+  const match=t=>{t=low(t).trim();if(!t)return null;const cs=items.filter(i=>i.c);
+    return cs.find(i=>low(i.l)===t)||cs.find(i=>low(i.l).startsWith(t))||null};
+  const visible=()=>{const t=low(q).trim();return items.filter(i=>!t||low(i.l).includes(t))};
+  const sel=()=>{ // single mode: the one chosen value ('' = none); a choice hidden by the search never counts
+    const v=(q.trim()?(cand||[...chosen][0]):[...chosen][0])||'';return visible().some(i=>i.v===v)?v:''};
+  const picked=()=>[...chosen].concat(cand&&!chosen.has(cand)?[cand]:[]);
+  return{
+    visible,
+    shown:v=>multi?(chosen.has(v)||cand===v):sel()===v,
+    setQuery(t){q=t;const m=match(t);
+      if(multi){cand=m&&!chosen.has(m.v)?m.v:null;return}
+      if(t.trim()){if(from!=='click')chosen=new Set()}else if(from!=='click')chosen=new Set(init);
+      cand=m?m.v:null},
+    click(v){
+      if(multi){if(chosen.has(v)||cand===v){chosen.delete(v);if(cand===v)cand=null}else chosen.add(v);return}
+      from='click';chosen=new Set([v]);cand=null},
+    enter(){ // multi: Enter keeps the typed match and clears the box for the next name; Enter on an empty box confirms
+      if(multi&&cand){chosen.add(cand);cand=null;q='';return'cleared'}return'confirm'},
+    all(){visible().filter(i=>i.c).forEach(i=>chosen.add(i.v));cand=null},
+    none(){const vis=new Set(visible().map(i=>i.v));[...chosen].forEach(v=>{if(vis.has(v))chosen.delete(v)});if(cand&&vis.has(cand))cand=null},
+    count:()=>multi?picked().length:(sel()?1:0),
+    canOk:()=>multi?(!!o.allowEmpty||picked().length>0):!!sel(),
+    result:()=>multi?picked():sel(),
+  }}
+
+// ---- asking which character(s) a mod is for: shown in the browser window when the download came from there ----
+let askQ=Promise.resolve();
+function askPick(opts){
+  const pr=opts.pr;
+  const run=async()=>{let r=null;
+    try{r=inv?await inv('pick_target',{...opts,pr:undefined,profile:pr&&pr.v,profiles:pr?profNames():undefined}):null}catch(_){}
+    if(r&&r.available){if(pr&&r.profile)pr.v=r.profile;return r.value} // the browser window may have changed the profile
+    return await pickInApp(opts)};
+  const p=askQ.then(run,run);askQ=p.catch(()=>{});return p}
+function askTarget(title,info,pr){
+  const items=[];
+  if(info.multi)items.push({v:'*auto',l:'Each file to its own character (by file name)'});
+  (info.characters||[]).forEach(c=>items.push({v:c,l:c,c:1}));
+  items.push({v:'*root',l:'Game folder (tools, fixes, ReShade)'});
+  let sel=info.suggested||(info.multi?'*auto':'');
+  if(!sel){try{const l=localStorage.getItem('lastTarget');if(l&&items.some(i=>i.v===l))sel=l}catch(_){}}
+  return askPick({title,items,selected:sel,pr}).then(v=>{
+    if(v&&v!=='*auto'&&v!=='*root'){try{localStorage.setItem('lastTarget',v)}catch(_){}}
+    return v})}
+// a pack: tick the characters that should get it (Select all / Unselect all, or type their names)
+function askCharacters(title,all,selected,okLabel,pr){
+  return askPick({title,items:all.map(c=>({v:c,l:c,c:1})),selected,multi:true,okLabel,pr})}
+function pickInApp(o){return new Promise(res=>{
+  const k=PKcore(o),m=$('#tgt');
+  setTitle($('#tgtT'),$('#tgtTag'),o.title);profPick($('#tgtProf'),o.pr);$('#tgtQ').value='';$('#tgtOk').textContent=o.okLabel||'Install';
+  $('#tgtTools').style.display=o.multi?'flex':'none';$('#tgtQ').style.display=(o.items||[]).length>1?'':'none';
+  const draw=()=>{
+    $('#tgtL').innerHTML=k.visible().map(i=>`<div class="item ${k.shown(i.v)?'on':''}" data-v="${esc(i.v)}"><div class="chk">${k.shown(i.v)?'✓':''}</div>${esc(i.l)}</div>`).join('')||'<div class="empty">No match</div>';
+    $('#tgtOk').disabled=!k.canOk();$('#tgtCnt').textContent=o.multi?k.count()+' selected':'';
+    const on=$('#tgtL .on');if(on)on.scrollIntoView({block:'nearest'})};
+  const done=v=>{m.classList.remove('on');$('#tgtL').onclick=$('#tgtOk').onclick=$('#tgtNo').onclick=$('#tgtAll').onclick=$('#tgtNone').onclick=$('#tgtQ').oninput=$('#tgtQ').onkeydown=null;res(v)};
+  $('#tgtL').onclick=e=>{const i=e.target.closest('.item');if(i){k.click(i.dataset.v);draw()}};
+  $('#tgtAll').onclick=()=>{k.all();draw()};$('#tgtNone').onclick=()=>{k.none();draw()};
+  $('#tgtOk').onclick=()=>{if(k.canOk())done(k.result())};$('#tgtNo').onclick=()=>done(null);
+  $('#tgtQ').oninput=e=>{k.setQuery(e.target.value);draw()};
+  $('#tgtQ').onkeydown=e=>{
+    if(e.key==='Enter'){e.preventDefault();const r=k.enter();
+      if(r==='cleared'){$('#tgtQ').value='';k.setQuery('');draw()}else if(k.canOk())done(k.result())}
+    else if(e.key==='Escape')done(null)};
+  draw();m.classList.add('on');$('#tgtQ').focus()})}
+
+// a yes/no question as a one-choice list: shown on top of the browser window when the user is there, else in the app
+async function askConfirm(title,yes,okLabel){
+  const v=await askPick({title,items:[{v:'y',l:yes}],selected:'y',okLabel:okLabel||'Install'});
+  return v==='y'}
+// an archive that holds many mods (one .zip per character...): tick the ones to install
+async function pickZips(path,zips,pr,tag){
+  const sel=await askPick({title:'Which mods do you want to install?'+tag(),items:zips.map(z=>({v:z,l:z.replace(/\.zip$/i,''),c:1})),selected:[],multi:true,okLabel:'Install',pr});
+  if(!sel||!sel.length)return;
+  let target;
+  if(inv){const st=await inv('autolink_status').catch(()=>null); // Dead or Alive 5: say who the mods are for
+    if(st&&st.supported){target=await askTarget('Who are these mods for?'+tag(),{characters:st.characters,multi:true},pr);if(!target)return}}
+  install('install_archive',{path,picks:sel,target},pr.v)}
+
+// `prof` = the profile the install was started from: new mods are switched on there and only there.
+function install(cmd,args,prof){
   const gid=S.game,md=modsDir();if(!gid)return;
+  const from=prof||profNow();
   return enqueue(async()=>{
     const d=S.data[gid];if(!d)return;
+    const before=new Set(d.mods.map(m=>m.id)); // what existed when this install really started
     let ns;
     if(inv)ns=await inv(cmd,{...args,game:gid,modsDir:md,state:d});
     else{ // browser preview: no files, just the list
       const names=cmd==='install_files'?args.paths.map(p=>base(p).replace(/\.\w+$/,'')):args.picks.length?args.picks.map(z=>z.replace(/\.zip$/i,'')):[base(args.path).replace(/\.\w+$/,'')];
-      ns=d;names.forEach(n=>{ns.mods=ns.mods.filter(m=>m.id!==n);ns.mods.push({id:n,name:n,root:'Mods'})})}
-    ns.mods.forEach(m=>{if(!(m.id in ns.profiles[ns.active]))ns.profiles[ns.active][m.id]=true});
-    S.data[gid]=ns;save(gid);render();
-    if(inv)noteBackup(await inv('sync_profile',{game:gid,modsDir:md,profile:ns.active,state:ns}));
+      ns=d;names.forEach(n=>{ns.mods=ns.mods.filter(m=>m.id!==n);ns.mods.push({id:n,name:n,root:'Mods'})});ns.installed=names}
+    // ns was copied before the archive was unpacked, so its profile choices are old by now: keep the live ones
+    const live=S.data[gid];if(!live)return; // the game was removed meanwhile
+    Profiles.applyInstall(live,ns,before,live.profiles&&from in live.profiles?from:live.active);
+    save(gid);render();
+    if(inv&&ns.thumbs){ // a picture found in the archive: no picture, no thumbnail
+      for(const [id,im] of Object.entries(ns.thumbs)){try{await saveThumbFor(gid,id,im.data)}catch(e){console.warn('thumbnail skipped for',id,e)}}
+      save(gid);if(S.game===gid)patchMods(Object.keys(ns.thumbs));else render()}
+    if(inv)await runSync(gid,md,live,'Adding the mod to the game…');
+    if(inv)inv('list_downloads').then(drawDl).catch(()=>{}); // installed archives are kept in this game's Downloads
   });
 }
-async function handleArchive(path){
-  const name=base(path);
+async function handleArchive(path,info){
+  const tag=info&&info.tag?info.tag:()=>'';
+  const name=base(path),pr={v:profNow()};
   if(inv){const r=await inv('scan_archive',{path});
-    if(r.kind=='picker')openPicker(r.zips,path);else install('install_archive',{path,picks:[]})}
+    if(r.kind=='blocked'){await promptReqs(true,r.missing.map(m=>({...m,installed:false})));return}
+    if(r.kind=='picker')await pickZips(path,r.zips,pr,tag);
+    else if(r.kind=='autolink-tool'){ // the requirement itself: goes into the game folder, no questions asked
+      install('install_archive',{path,picks:[]},pr.v).then(async()=>{
+        const left=(await reqCheck()).filter(x=>!x.installed);
+        if(!left.length)toast('AutoLink is installed. You can add character mods now.',7000);
+        if($('#requirements').classList.contains('on'))drawReqs()})}
+    else if(r.kind=='autolink'){ // Dead or Alive 5
+      const label=name.replace(/\.\w+$/,'');
+      if(!r.characters.length)toast("AutoLink isn't installed yet. Install the AutoLink tool first, then its character folders are created.",7000);
+      if(r.pack&&r.pack.length>=2){ // a pack: choose which characters get it
+        const sel=await askCharacters('Which characters should get "'+label+'"?'+tag(),r.pack,[],'Install',pr);
+        if(sel)install('install_archive',{path,picks:[],chars:sel},pr.v)}
+      else if(r.structured) // one character folder, stages / movies / sounds, or .lnk files: nothing to ask
+        install('install_archive',{path,picks:[],chars:r.pack||[]},pr.v)
+      else{const t=await askTarget('Who is "'+label+'" for?'+tag(),r,pr);if(t)install('install_archive',{path,picks:[],target:t},pr.v)}}
+    else install('install_archive',{path,picks:[]},pr.v)}
   else if(/individual|trendy/i.test(name))openPicker(['Alisa','Anna','Asuka','Azucena','Jun','Kunimitsu','Leo','Lidia','Lili','Nina','Reina','Xiaoyu','Zafina'].map(n=>'Trendy_'+n+'.zip'),name);
-  else install('install_archive',{path,picks:[]})}
-function handlePaths(paths){
+  else install('install_archive',{path,picks:[]},pr.v)}
+// Several archives at once (downloads finishing together, a multi-file pick, a drop): their questions line up one after another,
+// every title says "(1/3)", and cancelling one skips only that mod. The installs themselves already run one at a time (enqueue).
+const IQ=InstallQueue.create(label=>toast('Could not read '+label));
+// `from` = the game the files were downloaded for ({id,name}); another game than the selected one gets a question first
+function handlePaths(paths,from){
   if(!game()){toast('Add a game first, then add mods');return}
   const loose=paths.filter(p=>LOOSE.test(p));
-  if(loose.length)install('install_files',{paths:loose});
+  if(loose.length)install('install_files',{paths:loose},profNow());
   paths.filter(p=>!LOOSE.test(p)).forEach(p=>{
     if(!/\.(zip|7z|rar)$/i.test(p)){toast(base(p)+' is not a mod archive');return}
-    handleArchive(p).catch(e=>toast('Could not read '+base(p)))});
+    IQ.add(base(p),async info=>{
+      if(from&&from.id&&from.id!==S.game){
+        const sel=game()?game().name:'no game';
+        if(!await askConfirm('"'+base(p)+'" was downloaded for '+(from.name||'another game')+', but '+sel+' is selected'+info.tag(),'Install it into '+sel+' anyway','Install'))return}
+      await handleArchive(p,info)})});
 }
 $('#addBtn').onclick=async()=>{
   if(!game()){toast('Add a game first');return}
@@ -690,7 +1069,7 @@ addEventListener('drop',e=>{e.preventDefault();dc=0;$('#drop').classList.remove(
 // Starts the game: the program you picked, or Steam for a Steam install, or the game's own .exe found in its folder (Unreal games keep it in the root).
 // If none of that works you pick the .exe once (right-click Play to pick another).
 async function play(pick){
-  const g=game();if(!g)return;
+  const g=game();if(!g||syncing>0)return;
   if(!inv){toast('Play only works in the app');return}
   try{
     if(!pick){

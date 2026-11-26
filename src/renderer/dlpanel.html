@@ -22,6 +22,8 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .pr i{display:block;height:100%;background:linear-gradient(90deg,#991b1b,#1e40af);transition:width .25s}
 .x{width:26px;height:26px;border-radius:50%;flex:none;font-size:11px;background:rgba(255,255,255,.08)}
 .x:hover{background:rgba(255,255,255,.2)}
+.ib{flex:none;padding:0 14px;height:28px;border-radius:999px;font-weight:600;font-size:12px;background:linear-gradient(90deg,rgba(80,20,24,.9),rgba(22,34,80,.9));border:1px solid rgba(255,255,255,.22)}
+.ib:hover{border-color:rgba(255,255,255,.45)}
 .em{padding:26px 18px;text-align:center;color:#8c85a6;line-height:1.5}
 body.on #p{opacity:1;transform:none}
 #f{padding:8px 12px 12px}
@@ -37,10 +39,10 @@ const ST={failed:'Failed',cancelled:'Cancelled'};
 let key='',busy=false,kept=false;
 function sub(d){return d.state=='downloading'?(d.total>0?fmt(d.received)+' / '+fmt(d.total):fmt(d.received)):d.state=='done'?fmt(d.total||d.received):ST[d.state]||d.state}
 function draw(list){
-  const k=JSON.stringify(list.map(d=>[d.id,d.state]));
+  const k=JSON.stringify(list.map(d=>[d.id,d.state,!!d.installable]));
   if(k!==key){key=k;
     $('#n').textContent=list.length?'':'';
-    $('#l').innerHTML=list.length?list.map(d=>`<div class="it" data-id="${esc(d.id)}" data-st="${d.state}" title="${d.state=='done'?'Show in folder':''}"><div class="ic">\u{1F4E6}</div><div class="in"><div class="nm">${esc(d.name)}</div><div class="sb ${d.state=='failed'?'bad':''}">${esc(sub(d))}</div>${d.state=='downloading'?'<div class="pr"><i></i></div>':''}</div>${d.state=='downloading'?'<button class="x" data-a="cancel" title="Cancel">\u2715</button>':''}</div>`).join(''):'<div class="em">Nothing downloaded yet.<br>Files you download here are saved for the selected game.</div>';
+    $('#l').innerHTML=list.length?list.map(d=>`<div class="it" data-id="${esc(d.id)}" data-st="${d.state}" title="${d.state=='done'?'Show in folder':''}"><div class="ic">\u{1F4E6}</div><div class="in"><div class="nm">${esc(d.name)}</div><div class="sb ${d.state=='failed'?'bad':''}">${esc(sub(d))}</div>${d.state=='downloading'?'<div class="pr"><i></i></div>':''}</div>${d.state=='downloading'?'<button class="x" data-a="cancel" title="Cancel">\u2715</button>':d.installable?'<button class="ib" data-a="install" title="Install this mod">Install</button>':''}</div>`).join(''):'<div class="em">Nothing downloaded yet.<br>Files you download here are saved for the selected game.</div>';
     requestAnimationFrame(()=>dlp.size($('#p').offsetHeight))}
   list.forEach(d=>{const el=$('.it[data-id="'+CSS.escape(d.id)+'"]');if(!el)return;
     el.querySelector('.sb').textContent=sub(d);
@@ -49,6 +51,7 @@ async function tick(){if(busy)return;busy=true;try{draw(await dlp.cmd('list')||[
 $('#l').addEventListener('click',e=>{
   const it=e.target.closest('.it');if(!it)return;
   if(e.target.closest('[data-a="cancel"]')){dlp.cmd('cancel',it.dataset.id);return}
+  if(e.target.closest('[data-a="install"]')){dlp.cmd('install',it.dataset.id);return}
   if(it.dataset.st=='done')dlp.cmd('show',it.dataset.id)});
 $('#all').onclick=()=>dlp.cmd('all');
 addEventListener('blur',()=>dlp.blur());

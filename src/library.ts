@@ -2,9 +2,10 @@ import { handlers } from './core';
 import { fetchNow, removeCoverFile, resetCover, scheduleCovers, setCustomCover } from './covers';
 import { addGame, deleteGame, getGame, loadAll, saveData, setSetting, updateGame } from './db';
 import type { CommandArgs } from './types';
+import { listThemes, setThemeId } from './themes';
 import { app } from 'electron';
 import fs from 'fs';
-import { findGameExe } from './launch';
+import { databaseExe, findGameExe } from './launch';
 
 const gameIconCache = new Map<string, string>(); // exe path -> data: URL
 
@@ -19,12 +20,15 @@ const need = <T>(v: T | undefined | null, what: string): T => {
 export const libraryApi: Record<string, Fn> = {
   load_state: () => loadAll(),
 
+  /** The colour themes for the picker in Settings. */
+  list_themes: () => listThemes(),
+
   /** Icon of the game's program (the one the user picked, else the .exe found in its folder) as a data: URL. */
   get_game_icon: async a => {
     const g = getGame(need(a.id, 'id'));
     if (!g) return null;
     let exe: string | null = g.exe && /\.exe$/i.test(g.exe) && fs.existsSync(g.exe) ? g.exe : null;
-    if (!exe && g.path && fs.existsSync(g.path)) exe = findGameExe(g.path, g.name);
+    if (!exe && g.path && fs.existsSync(g.path)) exe = databaseExe(g.path) || findGameExe(g.path, g.name);
     if (!exe) return null;
     const hit = gameIconCache.get(exe);
     if (hit) return hit;
@@ -64,13 +68,14 @@ export const libraryApi: Record<string, Fn> = {
 
   set_game_exe: a => { updateGame(need(a.id, 'id'), { exe: a.exe || '' }); return null; },
 
-  set_cover: a => setCustomCover(need(a.id, 'id'), need(a.path, 'path')),
+  set_cover: a => setCustomCover(need(a.id, 'id'), a.bytes ? { bytes: a.bytes } : { file: need(a.path, 'path') }),
   reset_cover: a => { resetCover(need(a.id, 'id')); return null; },
   fetch_covers: () => fetchNow(),
 
   set_setting: a => {
     const key = need(a.key, 'key');
-    if (key !== 'sgdbKey' && key !== 'skipBrowserWarn') throw new Error('Unknown setting');
+    if (key !== 'sgdbKey' && key !== 'skipBrowserWarn' && key !== 'theme') throw new Error('Unknown setting');
+    if (key === 'theme') { setSetting(key, setThemeId(a.value)); return null; } // every MODit window repaints at once
     setSetting(key, String(a.value ?? ''));
     if (key === 'sgdbKey') { fetchNow(); }
     return null;

@@ -8,13 +8,14 @@
     "start": "npm run build && electron .",
     "dev": "node scripts/dev.js",
     "watch": "tsc --watch",
+    "test": "npm run build && node --test \"test/*.test.js\"",
     "dist": "npm run build && electron-builder",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "7zip-bin": "^5.2.0",
     "adm-zip": "^0.5.16",
-    "better-sqlite3": "13.0.3",
+    "better-sqlite3": "^13.2.0",
     "node-7z": "^3.0.0",
     "node-unrar-js": "^2.0.2"
   },
@@ -24,8 +25,12 @@
     "@types/node": "^22.0.0",
     "@types/node-7z": "^2.1.10",
     "electron": "45.4.1",
-    "electron-builder": "^25.1.8",
+    "electron-builder": "^26.18.0",
+    "node-gyp": "^13.1.0",
     "typescript": "^5.6.0"
+  },
+  "overrides": {
+    "node-gyp": "$node-gyp"
   },
   "build": {
     "appId": "app.modit",

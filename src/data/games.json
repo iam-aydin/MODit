@@ -10,107 +10,45 @@
     "modFolder": "~mods"
   },
   {
-    "id": "palworld",
-    "name": "Palworld",
-    "engine": "Unreal Engine 5",
+    "id": "doa5lr",
+    "name": "Dead or Alive 5 Last Round",
+    "engine": "Team Ninja (custom)",
     "detect": [
-      "Pal/Content/Paks"
-    ],
-    "modsPath": "Pal/Content/Paks",
-    "modFolder": "~mods"
-  },
-  {
-    "id": "stellarblade",
-    "name": "Stellar Blade",
-    "engine": "Unreal Engine 4",
-    "detect": [
-      "SB/Content/Paks"
-    ],
-    "modsPath": "SB/Content/Paks",
-    "modFolder": "~mods"
-  },
-  {
-    "id": "hogwartslegacy",
-    "name": "Hogwarts Legacy",
-    "engine": "Unreal Engine 4",
-    "detect": [
-      "Phoenix/Content/Paks"
-    ],
-    "modsPath": "Phoenix/Content/Paks",
-    "modFolder": "~mods"
-  },
-  {
-    "id": "wukong",
-    "name": "Black Myth: Wukong",
-    "engine": "Unreal Engine 5",
-    "detect": [
-      "b1/Content/Paks"
-    ],
-    "modsPath": "b1/Content/Paks",
-    "modFolder": "~mods"
-  },
-  {
-    "id": "007firstlight",
-    "name": "007 First Light",
-    "engine": "Glacier",
-    "detect": [
-      "Runtime/packagedefinition.txt"
+      "game.exe",
+      "DOA5LR.ini"
     ],
     "folderNames": [
-      "007 First Light",
-      "007FirstLight"
+      "Dead or Alive 5 Last Round"
     ],
     "modsPath": "",
     "modFolder": "",
     "install": "overlay",
+    "layout": "autolink",
     "overlayRoots": [
-      "Runtime"
+      "AutoLink"
+    ],
+    "launch": "game.exe",
+    "modsOpen": "AutoLink",
+    "rootFiles": [
+      ".lnk"
+    ],
+    "folders": [
+      "AutoLink/_Texture",
+      "AutoLink/_Movie",
+      "AutoLink/_Stages",
+      "AutoLink/_Sound"
+    ],
+    "requirements": [
+      {
+        "id": "autolink",
+        "name": "AutoLink Tool by FallingCat",
+        "check": [
+          "AutoLink/NAME.txt"
+        ],
+        "url": "https://www.nexusmods.com/deadoralive5/mods/135?tab=files",
+        "file": "AutoLink Tool by FallingCat",
+        "note": "Costume, hair and movie mods are loaded by this tool. Install it before adding any mod."
+      }
     ]
-  },
-  {
-    "id": "kcd2",
-    "name": "Kingdom Come: Deliverance II",
-    "engine": "CryEngine",
-    "detect": [
-      "Bin/Win64MasterMasterSteamPGO/KingdomCome.exe"
-    ],
-    "folderNames": [
-      "KingdomComeDeliverance2",
-      "Kingdom Come Deliverance II",
-      "Kingdom Come Deliverance 2"
-    ],
-    "modsPath": "Mods",
-    "modFolder": "",
-    "install": "folders",
-    "manifest": "mod.manifest"
-  },
-  {
-    "id": "alanwake2",
-    "name": "Alan Wake 2",
-    "engine": "Northlight",
-    "detect": [
-      "AlanWake2.exe"
-    ],
-    "folderNames": [
-      "Alan Wake 2",
-      "AlanWake2"
-    ],
-    "modsPath": "",
-    "modFolder": "",
-    "install": "overlay",
-    "overlayRoots": [
-      "data"
-    ]
-  },
-  {
-    "id": "unity-bepinex",
-    "name": "Unity (BepInEx)",
-    "engine": "Unity",
-    "generic": true,
-    "detect": [
-      "BepInEx/plugins"
-    ],
-    "modsPath": "BepInEx/plugins",
-    "modFolder": ""
   }
 ]

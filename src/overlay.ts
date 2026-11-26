@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import fs from 'fs';
 import path from 'path';
+import { placeFile } from './fastfs';
 
 // Mods that are copied INTO the game's own folders (007 First Light: Runtime, Alan Wake 2: data,
 // Kingdom Come: Deliverance 2: Mods/<mod>).  Rules:
@@ -28,6 +29,7 @@ const stateFile = (gid: string) => path.join(backupRoot(gid), 'state.json');
 const isDir = (p: string) => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
 const exists = (p: string) => { try { fs.statSync(p); return true; } catch { return false; } };
 const rmrf = (p: string) => fs.rmSync(p, { recursive: true, force: true });
+const rmA = (p: string) => fs.promises.rm(p, { recursive: true, force: true }); // does not block the app while a big folder is deleted
 
 function within(base: string, rel: string): string | null {
   const b = path.resolve(base);
@@ -88,7 +90,7 @@ function prune(st: State, root: string): void {
 }
 
 /** Takes one mod's files out of the game and puts the original files back. */
-function undo(st: State, gid: string, root: string, id: string): void {
+async function undo(st: State, gid: string, root: string, id: string): Promise<void> {
   const list = st.applied[id] || [];
   delete st.applied[id];
   const still = new Set<string>();
@@ -102,10 +104,10 @@ function undo(st: State, gid: string, root: string, id: string): void {
     if (o && o.existed) {
       if (exists(bak)) {
         fs.mkdirSync(path.dirname(dest), { recursive: true });
-        fs.copyFileSync(bak, dest);
-        rmrf(bak);
+        await placeFile(bak, dest, false); // never writes through a hard link (that would change the mod's library copy)
+        await rmA(bak);
       } // backup gone: leave the file alone rather than delete the game's own
-    } else rmrf(dest);
+    } else await rmA(dest);
     delete st.orig[rel];
   }
 }
@@ -141,7 +143,7 @@ function editOrder(root: string, add: string[], remove: string[]): void {
  * Makes the game folder match the enabled mods. `lib(id)` is the folder holding a mod's files.
  * Returns the files whose originals were backed up during this call.
  */
-export function syncOverlay(gid: string, root: string, lib: (id: string) => string, mods: OverlayMod[]): { backedUp: string[] } {
+export async function syncOverlay(gid: string, root: string, lib: (id: string) => string, mods: OverlayMod[]): Promise<{ backedUp: string[] }> {
   const st = load(gid);
   const backedUp: string[] = [];
   const had = new Set(Object.keys(st.orig).filter(k => st.orig[k].existed)); // already saved earlier: not news for the user
@@ -168,7 +170,7 @@ export function syncOverlay(gid: string, root: string, lib: (id: string) => stri
 
   const removedOrder: string[] = [];
   for (const id of revert) {
-    undo(st, gid, root, id);
+    await undo(st, gid, root, id);
     if (!known.has(id)) removedOrder.push(...(st.orders[id] || []));
   }
   prune(st, root);
@@ -183,13 +185,15 @@ export function syncOverlay(gid: string, root: string, lib: (id: string) => stri
         if (exists(dest)) {
           const bak = path.join(filesDir(gid), rel);
           fs.mkdirSync(path.dirname(bak), { recursive: true });
-          fs.copyFileSync(dest, bak);
+          await fs.promises.copyFile(dest, bak);
           st.orig[rel] = { existed: true, mod: id, size: fs.statSync(dest).size, time: Date.now() };
           if (!had.has(rel)) backedUp.push(rel);
         } else st.orig[rel] = { existed: false, mod: id, size: 0, time: Date.now() };
       }
       mkdirTracked(st, root, path.dirname(dest));
-      fs.copyFileSync(path.join(src, rel), dest);
+      // a file the mod adds is hard-linked (no second copy on disk); one that replaces a game file is copied: the game's own
+      // files can be rewritten in place by the game or a verify/update, which must never reach the library copy
+      await placeFile(path.join(src, rel), dest, !st.orig[rel].existed);
       list.push(rel);
     }
     st.applied[id] = list;
@@ -209,9 +213,9 @@ export function syncOverlay(gid: string, root: string, lib: (id: string) => stri
 }
 
 /** A mod is being deleted: take its files out and restore what it replaced. */
-export function removeOverlayMod(gid: string, root: string, id: string): void {
+export async function removeOverlayMod(gid: string, root: string, id: string): Promise<void> {
   const st = load(gid);
-  undo(st, gid, root, id);
+  await undo(st, gid, root, id);
   prune(st, root);
   editOrder(root, [], st.orders[id] || []);
   delete st.orders[id];
@@ -219,14 +223,14 @@ export function removeOverlayMod(gid: string, root: string, id: string): void {
 }
 
 /** The game is being removed from MODit: put every original back and delete the backups. */
-export function removeAllOverlay(gid: string, root: string): void {
+export async function removeAllOverlay(gid: string, root: string): Promise<void> {
   const st = load(gid);
   const orders: string[] = [];
-  for (const id of Object.keys(st.applied)) undo(st, gid, root, id);
+  for (const id of Object.keys(st.applied)) await undo(st, gid, root, id);
   for (const o of Object.values(st.orders)) orders.push(...o);
   prune(st, root);
   editOrder(root, [], orders);
-  rmrf(backupRoot(gid));
+  await rmA(backupRoot(gid));
 }
 
 export function listBackups(gid: string): BackupInfo[] {
@@ -246,6 +250,7 @@ export function restoreBackup(gid: string, root: string, rel: string): void {
   const dest = within(root, rel);
   if (!dest || !exists(bak)) throw new Error('The backup file is missing');
   fs.mkdirSync(path.dirname(dest), { recursive: true });
+  try { if (fs.lstatSync(dest).nlink > 1) fs.unlinkSync(dest); } catch { /* nothing there */ } // never write through a hard link
   fs.copyFileSync(bak, dest);
   rmrf(bak);
   delete st.orig[rel];

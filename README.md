@@ -18,6 +18,12 @@ Layout: `src/main.ts` (windows, IPC, browser window), `src/core.ts` (game/mod/pr
 `modFolder` (`"~mods"`, `"Mods"`, or `""` for none). Entries with the same `id` win over the bundled ones.
 Unknown Unreal games are detected automatically (`Content/Paks`, folder `~mods`).
 
+## Themes
+Settings > Appearance: Glass (the original look), Mint Gum (light) and Forest (dark). The colours live in `src/themes.ts`
+(the same palettes as the Game Asset Manager); `src/theme-css.ts` maps them onto MODit's windows. A theme is injected into every
+window (main, browser, its popups) when it is chosen, so there is no restart. Glass injects nothing: it is the page's own CSS.
+To add a theme, add a palette and one entry to the `THEMES` list in `themes.ts`.
+
 ## Library database
 Games, their mods/profiles and the settings are stored in SQLite: `%APPDATA%\modit\modit.db`
 (an old `state.json` is imported once and renamed to `state.json.imported`). Cover pictures are cached in

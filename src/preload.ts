@@ -12,6 +12,10 @@ contextBridge.exposeInMainWorld('api', {
   onDownloads: (cb: (list: unknown[]) => void) => {
     ipcRenderer.on('downloads', (_e, l: unknown[]) => cb(l));
   },
+  // the Install button of the browser's download panel (full path of the file, game it was downloaded for)
+  onInstall: (cb: (path: string, gameId?: string) => void) => {
+    ipcRenderer.on('install-download', (_e, p: string, gameId?: string) => cb(p, gameId));
+  },
   // the browser window asks the app to show one of its sections (e.g. "downloads")
   onGoto: (cb: (view: string) => void) => {
     ipcRenderer.on('goto', (_e, v: string) => cb(v));
